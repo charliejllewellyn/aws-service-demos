@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Outputs the time
+Resources:
+  CompehendFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: initalComprehend.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./
+      Policies: ComprehendFullAccess
+           
+  DefaultFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: catchall.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./
+      #      Events:
+      #  MyTimeApi:
+      #    Type: Api
+      #    Properties:
+      #      Path: /TimeResource
+      #      Method: GET
+
+  StepFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Demo-stepFunction-Role
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: ['sts:AssumeRole']
+          Effect: Allow
+          Principal:
+                  Service: !Join [ '', [ 'states.', !Ref "AWS::Region", '.amazonaws.com' ] ]
+        Version: '2012-10-17'
+      Path: /
+      Policies:
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - lambda:InvokeFunction
+              Resource: "*"
+
+  StepFunction:
+    Type: "AWS::StepFunctions::StateMachine"
+    Properties:
+      StateMachineName: Demo-state-machine
+      DefinitionString: 
+        Fn::Sub:
+          - |
+            {
+              "Comment": "An example for the chelt hack day",
+              "StartAt": "comprehend",
+              "States": {
+                "comprehend": {
+                  "Type": "Task",
+                  "Resource": "${comprehend}",
+                  "ResultPath": "$",
+                  "Next": "CheckValue"
+                },
+              "CheckValue": {
+              "Type" : "Choice",
+              "Choices": [{
+                "Variable": "$.sentiment",
+                "StringEquals": "POSITIVE",
+                "Next": "runPositivePath"
+              },{
+                "Variable": "$.sentiment",
+                "StringEquals": "NEGATIVE",
+                "Next": "runNegativePath"
+              }],
+              "Default": "InconclusivePath"
+            },
+                "runPositivePath": {
+                  "Type": "Task",
+                  "Resource": "${default}",
+                  "End": true
+                },    
+                "runNegativePath": {
+                  "Type": "Task",
+                  "Resource": "${default}",
+                  "End": true
+                },
+                "InconclusivePath": {
+                  "Type": "Task",
+                  "Resource": "${default}",
+                  "End": true
+                }
+              }
+            }
+          - { comprehend: !Ref CompehendFunction, default: !Ref DefaultFunction }
+      RoleArn: !GetAtt StepFunctionRole.Arn
