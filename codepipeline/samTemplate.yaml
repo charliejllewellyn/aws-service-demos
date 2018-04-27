@@ -7,7 +7,7 @@ Resources:
     Properties:
       Handler: initalComprehend.lambda_handler
       Runtime: python3.6
-      CodeUri: ./
+      CodeUri: ./comprehend
       Policies: ComprehendFullAccess
            
   DefaultFunction:
@@ -15,7 +15,7 @@ Resources:
     Properties:
       Handler: catchall.lambda_handler
       Runtime: python3.6
-      CodeUri: ./
+      CodeUri: ./catchall
       #      Events:
       #  MyTimeApi:
       #    Type: Api
