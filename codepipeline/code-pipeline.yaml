@@ -215,7 +215,7 @@ Resources:
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/nodejs:6.3.1
+        Image: aws/codebuild/python:3.3.6
       Source:
         Type: CODEPIPELINE
       TimeoutInMinutes: 10
@@ -288,6 +288,30 @@ Resources:
                 Action:
                 - ssm:GetParameters
                 Resource: arn:aws:ssm:eu-west-2:008369042577:parameter/CodeBuild/*
+
+  CloudWatchEventRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: cloudWatch-CodeCommitEvent-Role
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: ['sts:AssumeRole']
+          Effect: Allow
+          Principal:
+            Service: [events.amazonaws.com]
+        Version: '2012-10-17'
+      Path: /
+      Policies:
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - codepipeline:StartPipelineExecution
+              Resource:
+                - !Join [ '', [ 'arn:aws:codepipeline:', !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ':', !Ref CodePipeline ] ]
+
           
   CodePipeline:
     Type: "AWS::CodePipeline::Pipeline"
@@ -375,19 +399,29 @@ Resources:
                 Provider: CloudFormation
               OutputArtifacts: []
               RunOrder: 1
-            #        -
-            #          name: codedeploy-demo-changeset
-            #          actions:
-            #          - name: ChangeSet
-            #            actionTypeId:
-            #              category: Deploy
-            #              owner: AWS
-            #              provider: CloudFormation
-            #              version: '1'
-            #            runOrder: 1
-            #            configuration:
-            #              ActionMode: CHANGE_SET_EXECUTE
-            #              ChangeSetName: codedeploy-demo-changeset
-            #              StackName: codedeploy-demo
-            #            outputArtifacts: []
-            #            inputArtifacts: []
+
+  EventRule: 
+    Type: "AWS::Events::Rule"
+    Properties: 
+      Description: "EventRule for codepipeline"
+      EventPattern: 
+        source:
+        - aws.codecommit
+        detail-type:
+        - CodeCommit Repository State Change
+        resources:
+        - !GetAtt CodeCommitRepo.Arn
+        detail:
+          event:
+          - referenceCreated
+          - referenceUpdated
+          referenceType:
+          - branch
+          referenceName:
+          - master
+      State: "ENABLED"
+      Targets: 
+        - Arn: !Join [ '', [ 'arn:aws:codepipeline:', !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ':', !Ref CodePipeline ] ]
+          Id: "TargetFunctionV1"
+          RoleArn: !GetAtt CloudWatchEventRole.Arn
+
