@@ -25,7 +25,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AWSLambdaExecute
       Path: /
-      RoleName: codepipeline-demo-Cloudformation
+      RoleName: cjl-fluff-Cloudformation
 
   CodepipelineServiceRole:
     Type: "AWS::IAM::Role"
@@ -39,12 +39,12 @@ Resources:
             Service: codepipeline.amazonaws.com
           Action: sts:AssumeRole
       Path: /
-      RoleName: codepipeline-demo-Service
+      RoleName: cjl-fluff-Pipeline-Service-Role
 
   CodepipelineRolePolicies:
     Type: "AWS::IAM::Policy"
     Properties:
-      PolicyName: "codepipeline-demo-Service-Policy"
+      PolicyName: "cjl-fluff-Service-Policy"
       PolicyDocument:
         Statement:
         - Action:
@@ -133,7 +133,7 @@ Resources:
   CloudFormationRolePolicies: 
     Type: "AWS::IAM::Policy"
     Properties: 
-      PolicyName: "codepipeline-demo-Cloudformation-Policy"
+      PolicyName: "cjl-fluff-Cloudformation-Policy"
       PolicyDocument: 
         Version: "2012-10-17"
         Statement:
@@ -215,7 +215,7 @@ Resources:
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/ubuntu-base:14.04
+        Image: aws/codebuild/nodejs:6.3.1
       Source:
         Type: CODEPIPELINE
       TimeoutInMinutes: 10
@@ -223,6 +223,9 @@ Resources:
   CodeBuildRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: cjl-fluff-Codebuild-Role
+      ManagedPolicyArns: 
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
       AssumeRolePolicyDocument:
         Statement:
         - Action: ['sts:AssumeRole']
@@ -248,11 +251,48 @@ Resources:
                 - 'ec2:CreateNetworkInterfacePermission'
                 Effect: Allow
                 Resource: '*'
+                #- Action: s3:PutObject
+                #Effect: Allow
+                #Resource: arn:aws:s3:::*/*
+              - Effect: Allow
+                Resource:
+                - arn:aws:logs:eu-west-1:008369042577:log-group:/aws/codebuild/code-build-demo
+                - arn:aws:logs:eu-west-1:008369042577:log-group:/aws/codebuild/code-build-demo:*
+                Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              - Effect: Allow
+                Resource:
+                - arn:aws:s3:::codepipeline-eu-west-1-*
+                Action:
+                - s3:PutObject
+                - s3:GetObject
+                - s3:GetObjectVersion
+              - Effect: Allow
+                Resource:
+                - arn:aws:logs:eu-west-2:008369042577:log-group:/aws/codebuild/test
+                - arn:aws:logs:eu-west-2:008369042577:log-group:/aws/codebuild/test:*
+                Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              - Effect: Allow
+                Resource:
+                - arn:aws:s3:::codepipeline-eu-west-2-*
+                Action:
+                - s3:PutObject
+                - s3:GetObject
+                - s3:GetObjectVersion
+              - Effect: Allow
+                Action:
+                - ssm:GetParameters
+                Resource: arn:aws:ssm:eu-west-2:008369042577:parameter/CodeBuild/*
           
   CodePipeline:
     Type: "AWS::CodePipeline::Pipeline"
     Properties:
-      Name: codepipeline-demo
+      Name: cjl-fluff
       RestartExecutionOnUpdate: true
       RoleArn: !GetAtt CodepipelineServiceRole.Arn
       ArtifactStore: 
