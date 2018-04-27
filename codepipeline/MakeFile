@@ -1,15 +1,18 @@
-codeCommitBucket='codepipeline-demo-codepipelinebucket-17uyrwpx0ypb5'
+if [ -z $1 ]; then 
+  echo -e "\nPlease provide a bucket name...\n\ne.g. $0 <bucket-name>\n"
+fi
+
+codeCommitBucket=$1
 
 echo "
 version: 0.1
 phases:
   install:
     commands:
-      - npm install time
       - aws cloudformation package --template-file samTemplate.yaml --s3-bucket $codeCommitBucket
                                    --output-template-file outputSamTemplate.yaml
 artifacts:
   type: zip
   files:
     - samTemplate.yaml
-    - outputSamTemplate.yaml" > buildSpec.yaml
+    - outputSamTemplate.yaml" > exampleDeployment/buildSpec.yaml
