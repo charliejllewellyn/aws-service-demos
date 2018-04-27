@@ -49,4 +49,8 @@ Change directory into your repository and run:
 ```
 cd <your repo>
 git add -A
-git commit -
+git commit -m "example codedeploy pipeline"
+git push origin master
+```
+
+In the UI you can monitor the status of your application deployment

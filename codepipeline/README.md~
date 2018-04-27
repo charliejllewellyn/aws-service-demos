@@ -36,4 +36,17 @@ This repo also contains an example that deploys a step function referencing two 
 
 ```
 ./MakeFile <bucket-name>
+```
 
+Copy the contents of exampleDeployment to your local repository.
+
+```
+cp -R exampleDeployment/* <your repo>
+```
+
+Change directory into your repository and run:
+
+```
+cd <your repo>
+git add -A
+git commit -
