@@ -14,17 +14,19 @@ Resources:
       CodeUri: ./callStepFunction
       Policies:
       - AmazonS3FullAccess
+      - AWSStepFunctionsFullAccess
       Events:
         MyTimeApi:
           Type: S3
           Properties:
             Bucket: !Ref InputBucket
             Events: s3:ObjectCreated:*
+      Timeout: 60
 
   dataType:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: initalIdentification.lambda_handler
+      Handler: dataType.lambda_handler
       Runtime: python3.6
       CodeUri: ./dataType
       Policies: 
@@ -32,6 +34,29 @@ Resources:
       Environment:
         Variables:
           S3_ENDPOINT: ''
+      Timeout: 60
+
+  comprehendFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: comprehend.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./comprehend
+      Policies:
+      - AmazonS3FullAccess
+      - ComprehendFullAccess
+      Timeout: 60
+
+  rekognitionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: rekognition.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./rekognition
+      Policies:
+      - AmazonS3FullAccess
+      - RekognitionFullAccess
+      Timeout: 60
            
   DefaultFunction:
     Type: AWS::Serverless::Function
@@ -39,6 +64,7 @@ Resources:
       Handler: catchall.lambda_handler
       Runtime: python3.6
       CodeUri: ./catchall
+      Timeout: 60
 
   StepFunctionRole:
     Type: AWS::IAM::Role
@@ -71,45 +97,45 @@ Resources:
           - |
             {
               "Comment": "An example for the chelt hack day",
-              "StartAt": "comprehend",
+              "StartAt": "Identify",
               "States": {
-                "comprehend": {
+                "Identify": {
                   "Type": "Task",
                   "Resource": "${dataType}",
                   "ResultPath": "$",
-                  "Next": "CheckValue"
+                  "Next": "RouteDataType"
                 },
-              "CheckValue": {
+              "RouteDataType": {
               "Type" : "Choice",
               "Choices": [{
-                "Variable": "$.sentiment",
-                "StringEquals": "POSITIVE",
-                "Next": "runPositivePath"
+                "Variable": "$[0].dataType",
+                "StringEquals": "image/jpeg",
+                "Next": "runRekognition"
               },{
-                "Variable": "$.sentiment",
-                "StringEquals": "NEGATIVE",
-                "Next": "runNegativePath"
+                "Variable": "$[0].dataType",
+                "StringEquals": "text/plain",
+                "Next": "runComprehend"
               }],
-              "Default": "InconclusivePath"
+              "Default": "inconclusiveDataType"
             },
-                "runPositivePath": {
+                "runRekognition": {
                   "Type": "Task",
-                  "Resource": "${default}",
+                  "Resource": "${rekognition}",
                   "End": true
                 },    
-                "runNegativePath": {
+                "runComprehend": {
                   "Type": "Task",
-                  "Resource": "${default}",
+                  "Resource": "${comprehend}",
                   "End": true
                 },
-                "InconclusivePath": {
+                "inconclusiveDataType": {
                   "Type": "Task",
                   "Resource": "${default}",
                   "End": true
                 }
               }
             }
-          - { dataType: !GetAtt dataType.Arn, default: !GetAtt DefaultFunction.Arn }
+          - { dataType: !GetAtt dataType.Arn, default: !GetAtt DefaultFunction.Arn, comprehend: comprehendFunction.Arn, rekognition: rekognitionFunction.Arn }
       RoleArn: !GetAtt StepFunctionRole.Arn
 
 Outputs:

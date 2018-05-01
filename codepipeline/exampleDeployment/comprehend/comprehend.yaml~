@@ -18,4 +18,5 @@ def readHead(event):
     return response['ResponseMetadata']['HTTPHeaders']['content-type']
 
 def lambda_handler(event, context):
-    typeText = readHead(event)
+    typeText = { 'dataType': readHead(event) }
+    return typeText, event
