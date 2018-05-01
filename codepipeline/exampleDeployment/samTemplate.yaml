@@ -55,7 +55,7 @@ Resources:
       CodeUri: ./rekognition
       Policies:
       - AmazonS3FullAccess
-      - RekognitionFullAccess
+      - AmazonRekognitionFullAccess
       Timeout: 60
            
   DefaultFunction:
