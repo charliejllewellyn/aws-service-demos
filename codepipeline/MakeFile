@@ -15,4 +15,4 @@ artifacts:
   type: zip
   files:
     - samTemplate.yaml
-    - outputSamTemplate.yaml" > exampleDeployment/buildSpec.yaml
+    - outputSamTemplate.yaml" > exampleDeployment/buildspec.yaml
