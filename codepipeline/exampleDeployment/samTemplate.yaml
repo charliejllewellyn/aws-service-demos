@@ -2,15 +2,27 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Outputs the time
 Resources:
-  CompehendFunction:
+   
+  InputBucket:
+    Type: AWS::S3::Bucket
+
+  dataType:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: initalComprehend.lambda_handler
+      Handler: initalIdentification.lambda_handler
       Runtime: python3.6
-      CodeUri: ./comprehend
+      CodeUri: ./dataType
       Policies: 
-      - ComprehendFullAccess
       - AmazonS3FullAccess
+      Events:
+        MyTimeApi:
+          Type: S3
+          Properties:
+            Bucket: !Ref InputBucket
+            Events: s3:ObjectCreated:*
+      Environment:
+        Variables:
+          S3_ENDPOINT: ''
            
   DefaultFunction:
     Type: AWS::Serverless::Function
@@ -60,7 +72,7 @@ Resources:
               "States": {
                 "comprehend": {
                   "Type": "Task",
-                  "Resource": "${comprehend}",
+                  "Resource": "${dataType}",
                   "ResultPath": "$",
                   "Next": "CheckValue"
                 },
@@ -94,5 +106,10 @@ Resources:
                 }
               }
             }
-          - { comprehend: !GetAtt CompehendFunction.Arn, default: !GetAtt DefaultFunction.Arn }
+          - { dataType: !GetAtt dataType.Arn, default: !GetAtt DefaultFunction.Arn }
       RoleArn: !GetAtt StepFunctionRole.Arn
+
+Outputs:
+  InputBucket:
+    Description: The bucket where objects are uploaded to trigger the data pipepline
+    Value: !Ref InputBucket

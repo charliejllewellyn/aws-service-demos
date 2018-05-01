@@ -7,15 +7,18 @@ Parameters:
 
 Resources:
 
+  # Creates a bucket to store code used to deploy to Lambda
   CodePipelineBucket:
     Type: AWS::S3::Bucket
 
+  # Creates a CodeCommit repo to store code for the project. Updates to the files will trigger the CodePipeline to run
   CodeCommitRepo:
     Type: "AWS::CodeCommit::Repository"
     Properties: 
       RepositoryDescription: CodeCommit Demo
-      RepositoryName: code-commit-demo
+      RepositoryName: !Ref ProjectName
 
+  # Creates a IAM role that will be assumed by CloudFormation when invoked by CodePipeline to create the infrastructure
   CloudFormationRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -30,9 +33,11 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AWSLambdaExecute
         - arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
       Path: /
       RoleName: !Join [ '', [ !Ref ProjectName, '-Codepipeline-Cloudformation-Role' ] ]
 
+  # Creates an IAM role for CodePipeline
   CodepipelineServiceRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -47,6 +52,7 @@ Resources:
       Path: /
       RoleName: !Join [ '', [ !Ref ProjectName, '-Codepipeline-Service-Role' ] ]
 
+  # CodePipeline service policy attached to the CodePipeline service role
   CodepipelineRolePolicies:
     Type: "AWS::IAM::Policy"
     Properties:
@@ -136,6 +142,7 @@ Resources:
         - 
           Ref: "CodepipelineServiceRole"
 
+  # CloudFormation policy attached to the CloudFormation role assumed when creating the infrastructure
   CloudFormationRolePolicies: 
     Type: "AWS::IAM::Policy"
     Properties: 
@@ -212,20 +219,7 @@ Resources:
         - 
           Ref: "CloudFormationRole"
 
-  CodeBuildProject:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      ServiceRole: !Ref CodeBuildRole
-      Artifacts:
-        Type: CODEPIPELINE
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/python:3.3.6
-      Source:
-        Type: CODEPIPELINE
-      TimeoutInMinutes: 10
-
+  # Creates a role for code build
   CodeBuildRole:
     Type: AWS::IAM::Role
     Properties:
@@ -257,6 +251,20 @@ Resources:
                 - 'ec2:CreateNetworkInterfacePermission'
                 Effect: Allow
                 Resource: '*'
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      ServiceRole: !Ref CodeBuildRole
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/python:3.3.6
+      Source:
+        Type: CODEPIPELINE
+      TimeoutInMinutes: 10
 
   CloudWatchEventRole:
     Type: AWS::IAM::Role
@@ -395,6 +403,6 @@ Resources:
           RoleArn: !GetAtt CloudWatchEventRole.Arn
 
 Outputs:
-  CodeDeploy-Bucket-Lambda:
+  CodeDeployBucketForLambdaDeployments:
     Description: The bucket used to hold lambda functions for deployments
     Value: !Ref CodePipelineBucket
