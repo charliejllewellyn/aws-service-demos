@@ -135,7 +135,7 @@ Resources:
                 }
               }
             }
-          - { dataType: !GetAtt dataType.Arn, default: !GetAtt DefaultFunction.Arn, comprehend: comprehendFunction.Arn, rekognition: rekognitionFunction.Arn }
+          - { dataType: !GetAtt dataType.Arn, default: !GetAtt DefaultFunction.Arn, comprehend: !GetAtt comprehendFunction.Arn, rekognition: !GetAtt rekognitionFunction.Arn }
       RoleArn: !GetAtt StepFunctionRole.Arn
 
 Outputs:
