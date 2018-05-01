@@ -6,21 +6,6 @@ Resources:
   InputBucket:
     Type: AWS::S3::Bucket
 
-  callStepFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: callStepFunction.lambda_handler
-      Runtime: python3.6
-      CodeUri: ./callStepFunction
-      Policies:
-      - AmazonS3FullAccess
-      Events:
-        MyTimeApi:
-          Type: S3
-          Properties:
-            Bucket: !Ref InputBucket
-            Events: s3:ObjectCreated:*
-
   dataType:
     Type: AWS::Serverless::Function
     Properties:
@@ -29,6 +14,12 @@ Resources:
       CodeUri: ./dataType
       Policies: 
       - AmazonS3FullAccess
+      Events:
+        MyTimeApi:
+          Type: S3
+          Properties:
+            Bucket: !Ref InputBucket
+            Events: s3:ObjectCreated:*
       Environment:
         Variables:
           S3_ENDPOINT: ''
@@ -39,6 +30,12 @@ Resources:
       Handler: catchall.lambda_handler
       Runtime: python3.6
       CodeUri: ./catchall
+      #      Events:
+      #  MyTimeApi:
+      #    Type: Api
+      #    Properties:
+      #      Path: /TimeResource
+      #      Method: GET
 
   StepFunctionRole:
     Type: AWS::IAM::Role

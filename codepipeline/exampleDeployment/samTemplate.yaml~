@@ -39,6 +39,12 @@ Resources:
       Handler: catchall.lambda_handler
       Runtime: python3.6
       CodeUri: ./catchall
+      #      Events:
+      #  MyTimeApi:
+      #    Type: Api
+      #    Properties:
+      #      Path: /TimeResource
+      #      Method: GET
 
   StepFunctionRole:
     Type: AWS::IAM::Role

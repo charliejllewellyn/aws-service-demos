@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Outputs the time
+Outputs:
+  InputBucket:
+    Description: The bucket where objects are uploaded to trigger the data pipepline
+    Value:
+      Ref: InputBucket
+Resources:
+  DefaultFunction:
+    Properties:
+      CodeUri: s3://code-pipeline-final-demo-codepipelinebucket-18vdsh383qxix/669687b6005b96be117be61a96b450fb
+      Handler: catchall.lambda_handler
+      Runtime: python3.6
+    Type: AWS::Serverless::Function
+  InputBucket:
+    Type: AWS::S3::Bucket
+  StepFunction:
+    Properties:
+      DefinitionString:
+        Fn::Sub:
+        - "{\n  \"Comment\": \"An example for the chelt hack day\",\n  \"StartAt\"\
+          : \"comprehend\",\n  \"States\": {\n    \"comprehend\": {\n      \"Type\"\
+          : \"Task\",\n      \"Resource\": \"${dataType}\",\n      \"ResultPath\"\
+          : \"$\",\n      \"Next\": \"CheckValue\"\n    },\n  \"CheckValue\": {\n\
+          \  \"Type\" : \"Choice\",\n  \"Choices\": [{\n    \"Variable\": \"$.sentiment\"\
+          ,\n    \"StringEquals\": \"POSITIVE\",\n    \"Next\": \"runPositivePath\"\
+          \n  },{\n    \"Variable\": \"$.sentiment\",\n    \"StringEquals\": \"NEGATIVE\"\
+          ,\n    \"Next\": \"runNegativePath\"\n  }],\n  \"Default\": \"InconclusivePath\"\
+          \n},\n    \"runPositivePath\": {\n      \"Type\": \"Task\",\n      \"Resource\"\
+          : \"${default}\",\n      \"End\": true\n    },    \n    \"runNegativePath\"\
+          : {\n      \"Type\": \"Task\",\n      \"Resource\": \"${default}\",\n  \
+          \    \"End\": true\n    },\n    \"InconclusivePath\": {\n      \"Type\"\
+          : \"Task\",\n      \"Resource\": \"${default}\",\n      \"End\": true\n\
+          \    }\n  }\n}\n"
+        - dataType:
+            Fn::GetAtt:
+            - dataType
+            - Arn
+          default:
+            Fn::GetAtt:
+            - DefaultFunction
+            - Arn
+      RoleArn:
+        Fn::GetAtt:
+        - StepFunctionRole
+        - Arn
+      StateMachineName: Demo-state-machine
+    Type: AWS::StepFunctions::StateMachine
+  StepFunctionRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+              Fn::Join:
+              - ''
+              - - states.
+                - Ref: AWS::Region
+                - .amazonaws.com
+        Version: '2012-10-17'
+      Path: /
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - lambda:InvokeFunction
+            Effect: Allow
+            Resource: '*'
+          Version: '2012-10-17'
+        PolicyName: CodeBuildAccess
+      RoleName: Demo-stepFunction-Role
+    Type: AWS::IAM::Role
+  dataType:
+    Properties:
+      CodeUri: s3://code-pipeline-final-demo-codepipelinebucket-18vdsh383qxix/2468386e344b3ebd3600b7653ea61502
+      Environment:
+        Variables:
+          S3_ENDPOINT: null
+      Events:
+        MyTimeApi:
+          Properties:
+            Bucket:
+              Ref: InputBucket
+            Events: s3:ObjectCreated:*
+          Type: S3
+      Handler: initalIdentification.lambda_handler
+      Policies:
+      - AmazonS3FullAccess
+      Runtime: python3.6
+    Type: AWS::Serverless::Function
+Transform: AWS::Serverless-2016-10-31

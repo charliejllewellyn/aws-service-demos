@@ -313,7 +313,7 @@ Resources:
               Configuration: 
                 BranchName: master
                 PollForSourceChanges: 'false'
-                RepositoryName: !Ref ProjectName
+                RepositoryName: code-commit-demo
               OutputArtifacts: 
                 - 
                   Name: MyApp
