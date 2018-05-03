@@ -21,5 +21,6 @@ def runRekognition(event):
 def lambda_handler(event, context):
     print(event[1]['Records'][0]['s3']['bucket']['name'])
     print(event[1]['Records'][0]['s3']['object']['key'])
-    print(runRekognition(event))
-    return 
+    event.append(runRekognition(event))
+    return event
+

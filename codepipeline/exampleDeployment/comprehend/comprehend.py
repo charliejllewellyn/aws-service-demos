@@ -22,5 +22,5 @@ def runComprehend(event):
 
 def lambda_handler(event, context):
     print(event)
-    print(runComprehend(event))
-    return 
+    event.append(runComprehend(event))
+    return event
