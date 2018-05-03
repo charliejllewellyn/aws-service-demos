@@ -11,7 +11,7 @@ def readObject(event):
     response = s3.get_object(
     Bucket=bucket,
     Key=key)
-    return response['Body'].read().decode("utf-8")
+    return response['Body'].read().decode('utf-8')
 
 def runComprehend(event):
     response = comprehend.detect_sentiment(
@@ -21,5 +21,6 @@ def runComprehend(event):
     return response
 
 def lambda_handler(event, context):
+    print(event)
     print(runComprehend(event))
     return 

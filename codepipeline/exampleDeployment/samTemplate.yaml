@@ -6,6 +6,9 @@ Resources:
   InputBucket:
     Type: AWS::S3::Bucket
 
+  OutputBucket:
+    Type: AWS::S3::Bucket
+
   callStepFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -21,6 +24,20 @@ Resources:
           Properties:
             Bucket: !Ref InputBucket
             Events: s3:ObjectCreated:*
+      Timeout: 60
+      AutoPublishAlias: live
+
+  writeData:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: writeData.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./writeData
+      Policies:
+      - AmazonS3FullAccess
+      Environment:
+        Variables:
+          OUTPUT_BUCKET: !Ref OutputBucket
       Timeout: 60
 
   dataType:
@@ -121,21 +138,26 @@ Resources:
                 "runRekognition": {
                   "Type": "Task",
                   "Resource": "${rekognition}",
-                  "End": true
+                  "Next": "writeOutput"
                 },    
                 "runComprehend": {
                   "Type": "Task",
                   "Resource": "${comprehend}",
-                  "End": true
+                  "Next": "writeOutput"
                 },
                 "inconclusiveDataType": {
                   "Type": "Task",
                   "Resource": "${default}",
                   "End": true
+                },
+                "writeOutput": {
+                  "Type": "Task",
+                  "Resource": "${writeData}",
+                  "End": true
                 }
               }
             }
-          - { dataType: !GetAtt dataType.Arn, default: !GetAtt DefaultFunction.Arn, comprehend: !GetAtt comprehendFunction.Arn, rekognition: !GetAtt rekognitionFunction.Arn }
+          - { dataType: !GetAtt dataType.Arn, default: !GetAtt DefaultFunction.Arn, comprehend: !GetAtt comprehendFunction.Arn, rekognition: !GetAtt rekognitionFunction.Arn, writeData: !GetAtt writeData.Arn }
       RoleArn: !GetAtt StepFunctionRole.Arn
 
 Outputs:
