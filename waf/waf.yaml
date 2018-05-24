@@ -112,9 +112,16 @@ Resources:
       UserData: 
         Fn::Base64: !Sub |
           #!/bin/bash
-          yum install -y httpd
-          service httpd start
-          chkconfig httpd on
+          yum install -y tomcat8
+          service tomcat8 start
+          chkconfig tomcat8 on
+          cd /var/lib/tomcat8/webapps/
+          curl -L https://sourceforge.net/projects/insecurewebapp/files/insecurewebapp-1.0-builds/insecurewebapp/insecure-20051027.zip/download?use_mirror=netix# -o insecure.zip
+          unzip insecure.zip
+          mv insecure/* .
+          chgrp -R tomcat insecure
+          mv insecure.war ROOT.war
+          service tomcat8 restart
 
   Ec2InstanceB: 
     Type: "AWS::EC2::Instance"
@@ -129,9 +136,16 @@ Resources:
       UserData: 
         Fn::Base64: !Sub |
           #!/bin/bash
-          yum install -y httpd
-          service httpd start
-          chkconfig httpd on
+          yum install -y tomcat8
+          service tomcat8 start
+          chkconfig tomcat8 on
+          cd /var/lib/tomcat8/webapps/
+          curl -L https://sourceforge.net/projects/insecurewebapp/files/insecurewebapp-1.0-builds/insecurewebapp/insecure-20051027.zip/download?use_mirror=netix# -o insecure.zip
+          unzip insecure.zip
+          mv insecure/* .
+          chgrp -R tomcat insecure
+          mv insecure.war ROOT.war
+          service tomcat8 restart
 
   securityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -143,10 +157,22 @@ Resources:
         FromPort: '80'
         ToPort: '80'
         CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '8080'
+        ToPort: '8080'
+        CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
       - IpProtocol: tcp
         FromPort: '80'
         ToPort: '80'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '8080'
+        ToPort: '8080'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '443'
+        ToPort: '443'
         CidrIp: 0.0.0.0/0
 
   SqlInjDetection: 
@@ -213,13 +239,13 @@ Resources:
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 3
       Name: WafDemo
-      Port: 80
+      Port: 8080
       Protocol: HTTP
       Targets:
         - Id: !Ref Ec2InstanceA
-          Port: 80
+          Port: 8080
         - Id: !Ref Ec2InstanceB
-          Port: 80
+          Port: 8080
       UnhealthyThresholdCount: 3
       VpcId: !Ref vpc
 
