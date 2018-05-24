@@ -1,0 +1,245 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  vpcCidrBlock:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: Project name that will be used to name and identify resoures that are created
+  keyPair:
+    Type: String
+    Default: cjl-aws-mac
+    Description: Key to associate with EC2 instances
+Mappings:
+  RegionMap: 
+    eu-central-1:
+      "64": "ami-9a91b371"
+    eu-west-1:
+      "64": "ami-ca0135b3"
+    eu-west-2:
+      "64": "ami-c12dcda6"
+    eu-west-3:
+      "64": "ami-cae150b7"
+    sa-east-1:
+      "64": "ami-f09dcc9c"
+    us-east-2:
+      "64": "ami-976152f2"
+    us-east-1:
+      "64": "ami-467ca739"
+    us-west-1:
+      "64": "ami-46e1f226"
+    us-west-2:
+      "64": "ami-e251209a"
+    ap-northeast-1:
+      "64": "ami-92df37ed"
+    ap-northeast-2:
+      "64": "ami-efaf0181"
+    ap-northeast-3:
+      "64": "ami-b4faf4c9"
+    ap-south-1:
+      "64": "ami-b46f48db"
+    ap-southeast-1:
+      "64": "ami-de90a5a2"
+    ap-southeast-2:
+      "64": "ami-60a26a02"
+    ca-central-1:
+      "64": "ami-338a0a57"
+
+Resources:
+
+  vpc:
+    Type: "AWS::EC2::VPC"
+    Properties: 
+      CidrBlock: !Ref vpcCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Customer
+        Value: CustomerA
+
+  mySubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Select [0, !Cidr [!Ref vpcCidrBlock, 2, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
+
+  mySubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Select [1, !Cidr [!Ref vpcCidrBlock, 2, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
+
+  myInternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+
+  attachIgwVpc:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties: 
+      InternetGatewayId: !Ref myInternetGateway
+      VpcId: !Ref vpc
+
+  routeTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: !Ref vpc
+
+  route:
+    Type: "AWS::EC2::Route"
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myInternetGateway
+      RouteTableId: !Ref routeTable
+
+  subnetAssA:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref routeTable
+      SubnetId: !Ref mySubnetA
+
+  subnetAssB:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref routeTable
+      SubnetId: !Ref mySubnetB
+
+  Ec2InstanceA: 
+    Type: "AWS::EC2::Instance"
+    Properties: 
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", 64]
+      KeyName: !Ref keyPair
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet: 
+            - !Ref securityGroup
+          SubnetId: !Ref mySubnetA
+      UserData: 
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum install -y httpd
+          service httpd start
+          chkconfig httpd on
+
+  Ec2InstanceB: 
+    Type: "AWS::EC2::Instance"
+    Properties: 
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", 64]
+      KeyName: !Ref keyPair
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet: 
+            - !Ref securityGroup
+          SubnetId: !Ref mySubnetA
+      UserData: 
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum install -y httpd
+          service httpd start
+          chkconfig httpd on
+
+  securityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to client host
+      VpcId: !Ref vpc
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: 0.0.0.0/0
+
+  SqlInjDetection: 
+    Type: "AWS::WAFRegional::SqlInjectionMatchSet"
+    Properties: 
+      Name: "Find SQL injections in the query string"
+      SqlInjectionMatchTuples: 
+        - 
+          FieldToMatch: 
+            Type: "QUERY_STRING"
+          TextTransformation: "URL_DECODE"
+
+  sqlInjection:
+    Type: "AWS::WAFRegional::Rule"
+    Properties:
+      Name: "sqlInjectWafDemoRule"
+      MetricName: "sqlInjectWafDemoRule"
+      Predicates:
+        -
+          DataId: !Ref SqlInjDetection
+          Negated: false
+          Type: "SqlInjectionMatch"
+
+  wafAcl:
+    Type: "AWS::WAFRegional::WebACL"
+    Properties: 
+      DefaultAction:
+        Type: "ALLOW"
+      MetricName: WAFDemo
+      Name: WAFDemo
+      Rules:
+        -
+          Action:
+            Type: "BLOCK"
+          Priority: 1
+          RuleId: !Ref sqlInjection
+
+  loadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Subnets:
+      - Ref: mySubnetA
+      - Ref: mySubnetB
+      SecurityGroups: 
+        - !GetAtt securityGroup.GroupId
+      LoadBalancerAttributes:
+      - Key: idle_timeout.timeout_seconds
+        Value: '50'
+
+  wafAlbAssoc:
+    Type: "AWS::WAFRegional::WebACLAssociation"
+    Properties: 
+      ResourceArn: !Ref loadBalancer
+      WebACLId: !Ref wafAcl
+
+  targetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      HealthCheckIntervalSeconds: 60
+      HealthCheckPath: /
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      Name: WafDemo
+      Port: 80
+      Protocol: HTTP
+      Targets:
+        - Id: !Ref Ec2InstanceA
+          Port: 80
+        - Id: !Ref Ec2InstanceB
+          Port: 80
+      UnhealthyThresholdCount: 3
+      VpcId: !Ref vpc
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref targetGroup
+      LoadBalancerArn: !Ref loadBalancer
+      Port: 80
+      Protocol: HTTP
+
+Outputs:
+  loadbalancerDNS:
+    Description: The DNS name used to hit the web service via the Application Load Balancer
+    Value: !GetAtt loadBalancer.DNSName
