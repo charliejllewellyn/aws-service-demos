@@ -35,7 +35,7 @@ wafDe-loadB-1GTSPSDDLWP0U-1581865168.eu-west-1.elb.amazonaws.com
 To test SQL injection append the following string to your web request:
 
 ```
-/?username=1%27%20or%20%271%27%20=%20%271&password=1%27%20or%20%271%27%20=%20%271
+?username=1%27%20or%20%271%27%20=%20%271&password=1%27%20or%20%271%27%20=%20%271
 ```
 
 Make a number of requests to generate some traffic in the logs.
