@@ -8,6 +8,8 @@ WAF can opperate in two modes, one where the WAF is placed in front of CloudFron
 
 The deployment sets up a basic WAF ACL with a rule to block SQL injection, however it is simple to extend to add additional rules for XXS or rate limiting.
 
+The web servers are configured with the OWASP sample insecure application for testing, https://www.owasp.org/index.php/Category:OWASP_Insecure_Web_App_Project.
+
 # Setup
 
 To deploy the infratsructure utilise CloudFormation. To do this via the CLI run:
