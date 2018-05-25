@@ -112,18 +112,22 @@ Resources:
       UserData: 
         Fn::Base64: !Sub |
           #!/bin/bash
-          yum install -y tomcat8
-          service tomcat8 start
-          chkconfig tomcat8 on
-          cd /var/lib/tomcat8/webapps/
-          curl -L https://sourceforge.net/projects/insecurewebapp/files/insecurewebapp-1.0-builds/insecurewebapp/insecure-20051027.zip/download?use_mirror=netix# -o insecure.zip
-          unzip insecure.zip
-          mv insecure/* .
-          chgrp -R tomcat insecure
-          mv insecure.war ROOT.war
-          service tomcat8 restart
+          #yum install -y tomcat8
+          #service tomcat8 start
+          #chkconfig tomcat8 on
+          #cd /var/lib/tomcat8/webapps/
+          #curl -L https://sourceforge.net/projects/insecurewebapp/files/insecurewebapp-1.0-builds/insecurewebapp/insecure-20051027.zip/download?use_mirror=netix# -o insecure.zip
+          #unzip insecure.zip
+          #mv insecure/* .
+          #chgrp -R tomcat insecure
+          #mv insecure.war ROOT.war
+          #service tomcat8 restart
+          yum install -y docker
+          chkconfig docker on
+          service docker start
+          docker run --rm -t -p 80:80 vulnerables/web-dvwa &
 
-  Ec2InstanceB: 
+  Ec2InstanceAttack: 
     Type: "AWS::EC2::Instance"
     Properties: 
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", 64]
@@ -136,16 +140,40 @@ Resources:
       UserData: 
         Fn::Base64: !Sub |
           #!/bin/bash
-          yum install -y tomcat8
-          service tomcat8 start
-          chkconfig tomcat8 on
-          cd /var/lib/tomcat8/webapps/
-          curl -L https://sourceforge.net/projects/insecurewebapp/files/insecurewebapp-1.0-builds/insecurewebapp/insecure-20051027.zip/download?use_mirror=netix# -o insecure.zip
-          unzip insecure.zip
-          mv insecure/* .
-          chgrp -R tomcat insecure
-          mv insecure.war ROOT.war
-          service tomcat8 restart
+          yum install -y docker
+          chkconfig docker on
+          service docker start
+          docker pull owasp/zap2docker-stable
+          docker run -u zap -p 8080:8080 -p 8090:8090 owasp/zap2docker-stable zap-webswing.sh &
+
+  Ec2InstanceB: 
+    Type: "AWS::EC2::Instance"
+    Properties: 
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", 64]
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet: 
+            - !Ref securityGroup
+          SubnetId: !Ref mySubnetB
+      UserData: 
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          #yum install -y tomcat8
+          #service tomcat8 start
+          #chkconfig tomcat8 on
+          #cd /var/lib/tomcat8/webapps/
+          #curl -L https://sourceforge.net/projects/insecurewebapp/files/insecurewebapp-1.0-builds/insecurewebapp/insecure-20051027.zip/download?use_mirror=netix# -o insecure.zip
+          #unzip insecure.zip
+          #mv insecure/* .
+          #chgrp -R tomcat insecure
+          #mv insecure.war ROOT.war
+          #service tomcat8 restart
+          yum install -y docker
+          chkconfig docker on
+          service docker start
+          docker run --rm -t -p 80:80 vulnerables/web-dvwa &
+
 
   securityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -160,6 +188,14 @@ Resources:
       - IpProtocol: tcp
         FromPort: '8080'
         ToPort: '8080'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '8090'
+        ToPort: '8090'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
         CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
       - IpProtocol: tcp
@@ -213,7 +249,7 @@ Resources:
   loadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Scheme: internet-facing
+      Scheme: internal
       Subnets:
       - Ref: mySubnetA
       - Ref: mySubnetB
@@ -239,15 +275,22 @@ Resources:
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 3
       Name: WafDemo
-      Port: 8080
+      Port: 80
       Protocol: HTTP
       Targets:
         - Id: !Ref Ec2InstanceA
-          Port: 8080
-        - Id: !Ref Ec2InstanceB
-          Port: 8080
+          Port: 80
+          #  - Id: !Ref Ec2InstanceB
+          #Port: 80
       UnhealthyThresholdCount: 3
       VpcId: !Ref vpc
+      TargetGroupAttributes:
+      - Key: stickiness.enabled
+        Value: true
+      - Key: stickiness.type
+        Value: lb_cookie
+      - Key: stickiness.lb_cookie.duration_seconds
+        Value: 604800
 
   Listener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -260,6 +303,12 @@ Resources:
       Protocol: HTTP
 
 Outputs:
-  loadbalancerDNS:
+  publicInsecureSiteUrl:
     Description: The DNS name used to hit the web service via the Application Load Balancer
-    Value: !GetAtt loadBalancer.DNSName
+    Value: !Join ['', ['http://', !GetAtt Ec2InstanceA.PublicDnsName]]
+  privateInsecureSiteUrl:
+    Description: The DNS name used to hit the web service via the Application Load Balancer
+    Value: !Join ['', ['http://', !GetAtt loadBalancer.DNSName]]
+  ZAPUrl:
+    Description: The Public DNS name for the server hosting ZAP, the software used to exploit the service
+    Value: !Join ['', ['http://', !GetAtt Ec2InstanceAttack.PublicDnsName, ':8080/?anonym=true&app=ZAP']]
