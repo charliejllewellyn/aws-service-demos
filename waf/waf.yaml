@@ -136,7 +136,7 @@ Resources:
           DeviceIndex: "0"
           GroupSet: 
             - !Ref securityGroup
-          SubnetId: !Ref mySubnetA
+          SubnetId: !Ref mySubnetB
       UserData: 
         Fn::Base64: !Sub |
           #!/bin/bash
@@ -145,35 +145,6 @@ Resources:
           service docker start
           docker pull owasp/zap2docker-stable
           docker run -u zap -p 8080:8080 -p 8090:8090 owasp/zap2docker-stable zap-webswing.sh &
-
-  Ec2InstanceB: 
-    Type: "AWS::EC2::Instance"
-    Properties: 
-      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", 64]
-      NetworkInterfaces: 
-        - AssociatePublicIpAddress: "true"
-          DeviceIndex: "0"
-          GroupSet: 
-            - !Ref securityGroup
-          SubnetId: !Ref mySubnetB
-      UserData: 
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          #yum install -y tomcat8
-          #service tomcat8 start
-          #chkconfig tomcat8 on
-          #cd /var/lib/tomcat8/webapps/
-          #curl -L https://sourceforge.net/projects/insecurewebapp/files/insecurewebapp-1.0-builds/insecurewebapp/insecure-20051027.zip/download?use_mirror=netix# -o insecure.zip
-          #unzip insecure.zip
-          #mv insecure/* .
-          #chgrp -R tomcat insecure
-          #mv insecure.war ROOT.war
-          #service tomcat8 restart
-          yum install -y docker
-          chkconfig docker on
-          service docker start
-          docker run --rm -t -p 80:80 vulnerables/web-dvwa &
-
 
   securityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -280,8 +251,6 @@ Resources:
       Targets:
         - Id: !Ref Ec2InstanceA
           Port: 80
-          #  - Id: !Ref Ec2InstanceB
-          #Port: 80
       UnhealthyThresholdCount: 3
       VpcId: !Ref vpc
       TargetGroupAttributes:
