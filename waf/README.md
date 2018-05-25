@@ -74,8 +74,8 @@ After the spider is complete right click the site and select "Run Scan", once co
 
 Example reports:
 
-[With WAF enabled](withWAF.html)
-[Without WAF enabled](withoutWAF.html)
+[With WAF enabled](http://htmlpreview.github.io/?https://github.com/charliejllewellyn/aws-service-demos/blob/master/waf/withWAF.html)
+[Without WAF enabled](http://htmlpreview.github.io/?https://github.com/charliejllewellyn/aws-service-demos/blob/master/waf/withoutWAF.html)
 
 To prove the point you can go back to the site in  the proxied browser and click on the SQL Injection link in the lefthand menu. Enter the following in the box. You will be able to see the usernames and md5 password hashes!!
 
