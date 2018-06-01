@@ -34,8 +34,27 @@ Resources:
         - arn:aws:iam::aws:policy/AWSLambdaExecute
         - arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
+        - arn:aws:iam::aws:policy/AWSCodePipelineFullAccess
+        - arn:aws:iam::aws:policy/AWSCodeDeployFullAccess
       Path: /
       RoleName: !Join [ '', [ !Ref ProjectName, '-Codepipeline-Cloudformation-Role' ] ]
+
+  CloudFormationPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: !Join [ '', [ !Ref ProjectName, '-Cloudformation-Policy' ] ]
+      PolicyDocument:
+        Statement:
+        - Action:
+          - lambda:ListTags
+          - lambda:TagResource
+          - lamdba:UntagResource
+          Resource: "*"
+          Effect: Allow
+      Roles:
+        - 
+          Ref: "CloudFormationRole"
 
   # Creates an IAM role for CodePipeline
   CodepipelineServiceRole:
@@ -341,16 +360,16 @@ Resources:
           Name: Staging
           Actions:
             - 
-              Name: codedeploy-demo
+              Name: !Ref ProjectName
               InputArtifacts:
                 - 
                   Name: MyAppBuild
               Configuration:
                 ActionMode: CHANGE_SET_REPLACE
                 Capabilities: CAPABILITY_NAMED_IAM
-                ChangeSetName: codedeploy-demo-changeset
+                ChangeSetName: !Join [ '', [ !Ref ProjectName, '-changeset' ] ]
                 RoleArn: !GetAtt CloudFormationRole.Arn
-                StackName: codedeploy-demo
+                StackName: !Ref ProjectName
                 TemplatePath: MyAppBuild::outputSamTemplate.yaml
               ActionTypeId:
                 Category: Deploy
@@ -363,7 +382,7 @@ Resources:
           Name: Execture-change-set
           Actions:
             - 
-              Name: codedeploy-demo-changeset
+              Name: !Join [ '', [ !Ref ProjectName, '-changeset' ] ]
               InputArtifacts: []
               Configuration:
                 ActionMode: CHANGE_SET_EXECUTE
@@ -376,6 +395,31 @@ Resources:
                 Provider: CloudFormation
               OutputArtifacts: []
               RunOrder: 1
+
+  EventRule: 
+    Type: "AWS::Events::Rule"
+    Properties: 
+      Description: "EventRule for codepipeline"
+      EventPattern: 
+        source:
+        - aws.codecommit
+        detail-type:
+        - CodeCommit Repository State Change
+        resources:
+        - !GetAtt CodeCommitRepo.Arn
+        detail:
+          event:
+          - referenceCreated
+          - referenceUpdated
+          referenceType:
+          - branch
+          referenceName:
+          - master
+      State: "ENABLED"
+      Targets: 
+        - Arn: !Join [ '', [ 'arn:aws:codepipeline:', !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ':', !Ref CodePipeline ] ]
+          Id: "TargetFunctionV1"
+          RoleArn: !GetAtt CloudWatchEventRole.Arn
 
   EventRule: 
     Type: "AWS::Events::Rule"
