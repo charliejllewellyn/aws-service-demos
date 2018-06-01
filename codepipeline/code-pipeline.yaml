@@ -386,8 +386,8 @@ Resources:
               InputArtifacts: []
               Configuration:
                 ActionMode: CHANGE_SET_EXECUTE
-                ChangeSetName: codedeploy-demo-changeset
-                StackName: codedeploy-demo
+                ChangeSetName: !Join [ '', [ !Ref ProjectName, '-changeset' ] ]
+                StackName: !Ref ProjectName
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
