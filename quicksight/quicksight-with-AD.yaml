@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: Project name that will be used to name and identify resoures that are created
+    Default: quicksightDemo
+
+Resources:
+
+  ################### Create VPC to work within ###################
+
+  vpc:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Tags:
+        -
+          Key: ProjectName
+          Value: !Ref ProjectName
+      TemplateURL: https://s3.amazonaws.com/cjl-cloudformation-stack-templates/vpc.yaml
+
+  dataBucket:
+    Type: AWS::S3::Bucket
+
+  demoAd: 
+    Type: "AWS::DirectoryService::MicrosoftAD"
+    Properties: 
+      Name: "mojdemo.local"
+      Password: 'JHGHJghr5464YT6546464^$^#$%$#'
+      VpcSettings: 
+        SubnetIds: 
+          - !GetAtt vpc.Outputs.subnetAId
+          - !GetAtt vpc.Outputs.subnetBId
+        VpcId: !GetAtt vpc.Outputs.vpcId
+
+  dhcpOptionsSet:
+    Type: "AWS::EC2::DHCPOptions"
+    Properties: 
+      DomainName: example.com
+      DomainNameServers: 
+        - !Select [ 0, !GetAtt demoAd.DnsIpAddresses ]
+        - !Select [ 1, !GetAtt demoAd.DnsIpAddresses ]
+      NtpServers: 
+        - !Select [ 0, !GetAtt demoAd.DnsIpAddresses ]
+        - !Select [ 1, !GetAtt demoAd.DnsIpAddresses ]
+      NetbiosNameServers: 
+        - !Select [ 0, !GetAtt demoAd.DnsIpAddresses ]
+        - !Select [ 1, !GetAtt demoAd.DnsIpAddresses ]
+      NetbiosNodeType: 2
+      Tags: 
+        - 
+          Key: foo
+          Value: bar
+
+Outputs:
+  dataBucket:
+    Description: The bucket used to hold data for the POC
+    Value: !Ref dataBucket

@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  vpcCidrBlock:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: Project name that will be used to name and identify resoures that are created
+
+Resources:
+
+  vpc:
+    Type: "AWS::EC2::VPC"
+    Properties: 
+      CidrBlock: !Ref vpcCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Customer
+        Value: CustomerA
+
+  mySubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Select [0, !Cidr [!Ref vpcCidrBlock, 2, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
+
+  mySubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Select [1, !Cidr [!Ref vpcCidrBlock, 2, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
+
+  myInternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+
+  attachIgwVpc:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties: 
+      InternetGatewayId: !Ref myInternetGateway
+      VpcId: !Ref vpc
+
+  routeTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: !Ref vpc
+
+  route:
+    Type: "AWS::EC2::Route"
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myInternetGateway
+      RouteTableId: !Ref routeTable
+
+  subnetAssA:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref routeTable
+      SubnetId: !Ref mySubnetA
+
+  subnetAssB:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref routeTable
+      SubnetId: !Ref mySubnetB
+
+Outputs:
+  vpcId:
+    Description: The VPC ID
+    Value: !Ref vpc
+  subnetAId:
+    Description: The ID of Subnet A
+    Value: !Ref mySubnetA
+  subnetBId:
+    Description: The ID of Subnet A
+    Value: !Ref mySubnetB
