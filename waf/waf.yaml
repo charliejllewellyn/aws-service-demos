@@ -4,6 +4,10 @@ Parameters:
   vpcCidrBlock:
     Type: String
     Default: 10.0.0.0/16
+    Description: Supernet to be used for VPC
+  projectName:
+    Type: String
+    Default: wafDemo
     Description: Project name that will be used to name and identify resoures that are created
 Mappings:
   RegionMap: 
@@ -49,8 +53,8 @@ Resources:
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
-      - Key: Customer
-        Value: CustomerA
+      - Key: ProjectName
+        Value: !Ref projectName
 
   mySubnetA:
     Type: AWS::EC2::Subnet
@@ -58,6 +62,9 @@ Resources:
       VpcId: !Ref vpc
       CidrBlock: !Select [0, !Cidr [!Ref vpcCidrBlock, 2, 4]]
       AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
+      Tags:
+      - Key: ProjectName
+        Value: !Ref projectName
 
   mySubnetB:
     Type: AWS::EC2::Subnet
@@ -65,9 +72,16 @@ Resources:
       VpcId: !Ref vpc
       CidrBlock: !Select [1, !Cidr [!Ref vpcCidrBlock, 2, 4]]
       AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
+      Tags:
+      - Key: ProjectName
+        Value: !Ref projectName
 
   myInternetGateway:
     Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+      - Key: ProjectName
+        Value: !Ref projectName
 
   attachIgwVpc:
     Type: "AWS::EC2::VPCGatewayAttachment"
@@ -79,6 +93,9 @@ Resources:
     Type: "AWS::EC2::RouteTable"
     Properties: 
       VpcId: !Ref vpc
+      Tags:
+      - Key: ProjectName
+        Value: !Ref projectName
 
   route:
     Type: "AWS::EC2::Route"
@@ -126,6 +143,9 @@ Resources:
           chkconfig docker on
           service docker start
           docker run --rm -t -p 80:80 vulnerables/web-dvwa &
+      Tags:
+      - Key: ProjectName
+        Value: !Ref projectName
 
   Ec2InstanceAttack: 
     Type: "AWS::EC2::Instance"
@@ -145,6 +165,9 @@ Resources:
           service docker start
           docker pull owasp/zap2docker-stable
           docker run -u zap -p 8080:8080 -p 8090:8090 owasp/zap2docker-stable zap-webswing.sh &
+      Tags:
+      - Key: ProjectName
+        Value: !Ref projectName
 
   securityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -181,6 +204,9 @@ Resources:
         FromPort: '443'
         ToPort: '443'
         CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: ProjectName
+        Value: !Ref projectName
 
   SqlInjDetection: 
     Type: "AWS::WAFRegional::SqlInjectionMatchSet"
@@ -229,6 +255,9 @@ Resources:
       LoadBalancerAttributes:
       - Key: idle_timeout.timeout_seconds
         Value: '50'
+      Tags:
+      - Key: ProjectName
+        Value: !Ref projectName
 
   wafAlbAssoc:
     Type: "AWS::WAFRegional::WebACLAssociation"
@@ -260,6 +289,9 @@ Resources:
         Value: lb_cookie
       - Key: stickiness.lb_cookie.duration_seconds
         Value: 604800
+      Tags:
+      - Key: ProjectName
+        Value: !Ref projectName
 
   Listener:
     Type: AWS::ElasticLoadBalancingV2::Listener
