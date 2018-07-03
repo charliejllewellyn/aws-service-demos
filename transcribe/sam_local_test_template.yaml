@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Transcribes audio files
+Resources:
+
+  transcribe:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: transcribe.lambda_handler
+      Runtime: python3.6
+      CodeUri: .
+
+  inputBucket:
+    Type: "AWS::S3::Bucket"
+
+  outputBucket:
+    Type: "AWS::S3::Bucket"
+
+Outputs:
+  inputBucket:
+    Description: Input Bucket Name
+    Value: !Ref inputBucket
+  outputBucket:
+    Description: Output Bucket Name
+    Value: !Ref outputBucket
