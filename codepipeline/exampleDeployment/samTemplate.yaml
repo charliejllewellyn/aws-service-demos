@@ -27,17 +27,45 @@ Resources:
       Timeout: 60
       AutoPublishAlias: live
 
-  writeData:
+  writeOutput:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: writeData.lambda_handler
+      Handler: writeOutput.lambda_handler
       Runtime: python3.6
-      CodeUri: ./writeData
+      CodeUri: ./writeOutput
       Policies:
       - AmazonS3FullAccess
       Environment:
         Variables:
           OUTPUT_BUCKET: !Ref OutputBucket
+      Timeout: 60
+
+  writeDynamo:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: writeDynamo.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./writeDynamo
+      Policies:
+      - AmazonDynamoDBFullAccess
+      Timeout: 60
+
+  updateDynamo:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: updateDynamo.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./updateDynamo
+      Policies:
+      - AmazonDynamoDBFullAccess
+      Timeout: 60
+
+  inconclusiveDataType:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: inconclusiveDataType.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./inconclusiveDataType
       Timeout: 60
 
   dataType:
@@ -113,12 +141,18 @@ Resources:
         Fn::Sub:
           - |
             {
-              "Comment": "An example for the chelt hack day",
-              "StartAt": "Identify",
+              "Comment": "A sample data prcoessing application",
+              "StartAt": "IdentifyDataType",
               "States": {
-                "Identify": {
+                "IdentifyDataType": {
                   "Type": "Task",
                   "Resource": "${dataType}",
+                  "ResultPath": "$",
+                  "Next": "writeDynamo"
+                },
+                "writeDynamo": {
+                  "Type": "Task",
+                  "Resource": "${writeDynamo}",
                   "ResultPath": "$",
                   "Next": "RouteDataType"
                 },
@@ -147,17 +181,22 @@ Resources:
                 },
                 "inconclusiveDataType": {
                   "Type": "Task",
-                  "Resource": "${default}",
+                  "Resource": "arn:aws:lambda:eu-west-1:008369042577:function:codedeploy-demo-DefaultFunction-OSFXBKUUW5DB",
                   "End": true
                 },
                 "writeOutput": {
                   "Type": "Task",
-                  "Resource": "${writeData}",
+                  "Resource": "${writeOutput}",
+                  "Next": "updateDynamo"
+                },
+                "updateDynamo": {
+                  "Type": "Task",
+                  "Resource": "${updateDynamo}",
                   "End": true
                 }
               }
             }
-          - { dataType: !GetAtt dataType.Arn, default: !GetAtt DefaultFunction.Arn, comprehend: !GetAtt comprehendFunction.Arn, rekognition: !GetAtt rekognitionFunction.Arn, writeData: !GetAtt writeData.Arn }
+          - { dataType: !GetAtt dataType.Arn, default: !GetAtt DefaultFunction.Arn, comprehend: !GetAtt comprehendFunction.Arn, rekognition: !GetAtt rekognitionFunction.Arn, writeOutput: !GetAtt writeOutput.Arn, writeDynamo: !GetAtt writeDynamo.Arn, updateDynamo: !GetAtt updateDynamo.Arn, inconclusiveDataType: !GetAtt inconclusiveDataType.Arn }
       RoleArn: !GetAtt StepFunctionRole.Arn
 
 Outputs:

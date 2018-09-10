@@ -1,0 +1,32 @@
+{
+  "currentIntent": {
+    "slots": {
+      "callDescriptionSlot": "my firearms request"
+    },
+    "confirmationStatus": "Confirmed",
+    "name": "callDescription",
+    "slotDetails": {
+      "callDescriptionSlot": {
+        "originalValue": "my firearms request",
+        "resolutions": [
+          {
+            "value": "to follow up on my firearms request"
+          }
+        ]
+      }
+    }
+  },
+  "bot": {
+    "alias": "$LATEST",
+    "version": "$LATEST",
+    "name": "cjl_call_router_demo"
+  },
+  "requestAttributes": null,
+  "invocationSource": "FulfillmentCodeHook",
+  "outputDialogMode": "Text",
+  "userId": "d2ipdivnty8f6rpiaprbyclup0fpugxh",
+  "messageVersion": "1.0",
+  "sessionAttributes": {},
+  "inputTranscript": "yes"
+}
+event['slots']['callDescriptionSlot']

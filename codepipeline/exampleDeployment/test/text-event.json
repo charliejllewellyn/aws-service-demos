@@ -1,0 +1,38 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.0",
+      "eventSource": "aws:s3",
+      "awsRegion": "eu-west-1",
+      "eventTime": "2018-05-01T18:52:53.357Z",
+      "eventName": "ObjectCreated:Put",
+      "userIdentity": {
+        "principalId": "AWS:AROAIFFG3ZS73B7SNCYPA:cjl-Isengard"
+      },
+      "requestParameters": {
+        "sourceIPAddress": "54.240.197.235"
+      },
+      "responseElements": {
+        "x-amz-request-id": "94CB63BAABBC82AB",
+        "x-amz-id-2": "5Ncqd0mDO46r4mQOC0NoLtwvB+HFax0ELB94tpFmsX09lHMsjZ+iNMJoeBqhClsjakIcbwCeZhY="
+      },
+      "s3": {
+        "s3SchemaVersion": "1.0",
+        "configurationId": "57a7b24b-9b2a-44c4-8c82-432ca1bb04ae",
+        "bucket": {
+          "name": "codedeploy-demo-inputbucket-1coq9dtn2mimv",
+          "ownerIdentity": {
+            "principalId": "A7XKL26GUIEJO"
+          },
+          "arn": "arn:aws:s3:::codedeploy-demo-inputbucket-1coq9dtn2mimv"
+        },
+        "object": {
+          "key": "family.jpg",
+          "size": 11,
+          "eTag": "197ecf415afb9ff08d509e623b2551ec",
+          "sequencer": "005AE8B78557900BF2"
+        }
+      }
+    }
+  ]
+}
