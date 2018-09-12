@@ -275,6 +275,7 @@ Resources:
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
+      Name: !Join [ '', [ !Ref ProjectName, '-CodeBuild' ] ]
       ServiceRole: !Ref CodeBuildRole
       Artifacts:
         Type: CODEPIPELINE
