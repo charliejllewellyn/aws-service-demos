@@ -217,7 +217,7 @@ Resources:
       Period: 60
       Statistic: Sum
       Threshold: 3.0
-      TreatMissingData: missing
+      TreatMissingData: notBreaching
       Unit: Count
 
   callStepFunctionFunctionEvent:
@@ -233,7 +233,7 @@ Resources:
       Period: 60
       Statistic: Sum
       Threshold: 3.0
-      TreatMissingData: missing
+      TreatMissingData: notBreaching
       Unit: Count
 
   writeOutputFunctionEvent:
@@ -249,7 +249,7 @@ Resources:
       Period: 60
       Statistic: Sum
       Threshold: 3.0
-      TreatMissingData: missing
+      TreatMissingData: notBreaching
       Unit: Count
 
   writeDynamoFunctionEvent:
@@ -265,7 +265,7 @@ Resources:
       Period: 60
       Statistic: Sum
       Threshold: 3.0
-      TreatMissingData: missing
+      TreatMissingData: notBreaching
       Unit: Count
 
   updateDynamoFunctionEvent:
@@ -281,7 +281,7 @@ Resources:
       Period: 60
       Statistic: Sum
       Threshold: 3.0
-      TreatMissingData: missing
+      TreatMissingData: notBreaching
       Unit: Count
 
   inconclusiveDataTypeFunctionEvent:
@@ -297,7 +297,7 @@ Resources:
       Period: 60
       Statistic: Sum
       Threshold: 3.0
-      TreatMissingData: missing
+      TreatMissingData: notBreaching
       Unit: Count
 
   dataTypeFunctionEvent:
@@ -313,7 +313,7 @@ Resources:
       Period: 60
       Statistic: Sum
       Threshold: 3.0
-      TreatMissingData: missing
+      TreatMissingData: notBreaching
       Unit: Count
 
   comprehendFunctionEvent:
@@ -329,7 +329,7 @@ Resources:
       Period: 60
       Statistic: Sum
       Threshold: 3.0
-      TreatMissingData: missing
+      TreatMissingData: notBreaching
       Unit: Count
 
   DefaultFunctionEvent:
@@ -345,7 +345,7 @@ Resources:
       Period: 60
       Statistic: Sum
       Threshold: 3.0
-      TreatMissingData: missing
+      TreatMissingData: notBreaching
       Unit: Count
 
 Outputs:
