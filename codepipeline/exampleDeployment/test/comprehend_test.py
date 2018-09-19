@@ -3,44 +3,49 @@ import unittest
 from comprehend.comprehend import getObjectDetails
 
 s3EventMock = '''
-{
-  "Records": [
-    {
-      "eventVersion": "2.0",
-      "eventTime": "1970-01-01T00:00:00.000Z",
-      "requestParameters": {
-        "sourceIPAddress": "127.0.0.1"
-      },
-      "s3": {
-        "configurationId": "testConfigRule",
-        "object": {
-          "eTag": "0123456789abcdef0123456789abcdef",
-          "sequencer": "0A1B2C3D4E5F678901",
-          "key": "test/key",
-          "size": 1024
+[
+  {
+    "dataType": "text/plain"
+  },
+  {
+    "Records": [
+      {
+        "eventVersion": "2.0",
+        "eventSource": "aws:s3",
+        "awsRegion": "eu-west-1",
+        "eventTime": "2018-09-19T10:13:50.586Z",
+        "eventName": "ObjectCreated:Put",
+        "userIdentity": {
+          "principalId": "AWS:AROAI4C7T3HZTNQDQJFL6:i-068de534a7eb59675"
         },
-        "bucket": {
-          "arn": "arn:aws:s3:::example-bucket",
-          "name": "example-bucket",
-          "ownerIdentity": {
-            "principalId": "EXAMPLE"
+        "requestParameters": {
+          "sourceIPAddress": "52.51.71.222"
+        },
+        "responseElements": {
+          "x-amz-request-id": "7CC3A82B66228DF9",
+          "x-amz-id-2": "fJAYD+QgVO14jOz34Zge+WS2c4iQtNnpSXsFLEWScXrKx/FtqbHxjvCK9EsVfz1qHkNwelsjhxA="
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "8c1455fa-d3f5-4a29-b839-f6275f022f6c",
+          "bucket": {
+            "name": "example-bucket",
+            "ownerIdentity": {
+              "principalId": "A7XKL26GUIEJO"
+            },
+            "arn": "arn:aws:s3:::codedeploy-demo-inputbucket-1o8fiqb6pw5wg"
+          },
+          "object": {
+            "key": "test/key",
+            "size": 2996,
+            "eTag": "4401b86fe2f780d6ab13a56de66629d8",
+            "sequencer": "005BA2215E89473DD2"
           }
-        },
-        "s3SchemaVersion": "1.0"
-      },
-      "responseElements": {
-        "x-amz-id-2": "EXAMPLE123/5678abcdefghijklambdaisawesome/mnopqrstuvwxyzABCDEFGH",
-        "x-amz-request-id": "EXAMPLE123456789"
-      },
-      "awsRegion": "us-east-1",
-      "eventName": "ObjectCreated:Put",
-      "userIdentity": {
-        "principalId": "EXAMPLE"
-      },
-      "eventSource": "aws:s3"
-    }
-  ]
-}
+        }
+      }
+    ]
+  }
+]
 '''
  
 class TestDataType(unittest.TestCase):
