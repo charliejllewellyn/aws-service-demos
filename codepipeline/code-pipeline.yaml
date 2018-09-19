@@ -380,7 +380,7 @@ Resources:
               OutputArtifacts: []
               RunOrder: 1
         - 
-          Name: Execture-change-set
+          Name: Execute-change-set
           Actions:
             - 
               Name: !Join [ '', [ !Ref ProjectName, '-changeset' ] ]
