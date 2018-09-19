@@ -7,8 +7,8 @@ comprehend = boto3.client('comprehend')
 
 
 def getObjectDetails(event):
-    bucket = event['Records'][0]['s3']['bucket']['name']
-    key = event['Records'][0]['s3']['object']['key']
+    bucket = event[1]['Records'][0]['s3']['bucket']['name']
+    key = event[1]['Records'][0]['s3']['object']['key']
     return [ bucket, key ]
 
 def readObject(event):
