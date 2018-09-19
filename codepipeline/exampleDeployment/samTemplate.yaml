@@ -80,6 +80,11 @@ Resources:
         Variables:
           S3_ENDPOINT: ''
       Timeout: 60
+      AutoPublishAlias: live
+      DeploymentPreference:
+        Type: Linear10PercentEvery1Minute
+        Alarms:
+          - !Ref rekognitionFunctionEvent
 
   comprehendFunction:
     Type: AWS::Serverless::Function
@@ -198,6 +203,150 @@ Resources:
             }
           - { dataType: !GetAtt dataType.Arn, default: !GetAtt DefaultFunction.Arn, comprehend: !GetAtt comprehendFunction.Arn, rekognition: !GetAtt rekognitionFunction.Arn, writeOutput: !GetAtt writeOutput.Arn, writeDynamo: !GetAtt writeDynamo.Arn, updateDynamo: !GetAtt updateDynamo.Arn, inconclusiveDataType: !GetAtt inconclusiveDataType.Arn }
       RoleArn: !GetAtt StepFunctionRole.Arn
+
+  rekognitionFunctionEvent:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      ActionsEnabled: True
+      AlarmDescription: Codepipeline demo - Rekognition Function error rate
+      AlarmName: rekognitionFunctionEvent
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 3.0
+      TreatMissingData: missing
+      Unit: Count
+
+  callStepFunctionFunctionEvent:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      AlarmDescription: Codepipeline demo - callStepFunction Function error rate
+      AlarmName: callStepFunctionFunctionEvent
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 3.0
+      TreatMissingData: missing
+      Unit: Count
+
+  writeOutputFunctionEvent:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      AlarmDescription: Codepipeline demo - writeOutput Function error rate
+      AlarmName: writeOutputFunctionEvent
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 3.0
+      TreatMissingData: missing
+      Unit: Count
+
+  writeDynamoFunctionEvent:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      AlarmDescription: Codepipeline demo - writeDynamo Function error rate
+      AlarmName: writeDynamoFunctionEvent
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 3.0
+      TreatMissingData: missing
+      Unit: Count
+
+  updateDynamoFunctionEvent:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      AlarmDescription: Codepipeline demo - updateDynamo Function error rate
+      AlarmName: updateDynamoFunctionEvent
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 3.0
+      TreatMissingData: missing
+      Unit: Count
+
+  inconclusiveDataTypeFunctionEvent:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      AlarmDescription: Codepipeline demo - inconclusiveDataType Function error rate
+      AlarmName: inconclusiveDataTypeFunctionEvent
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 3.0
+      TreatMissingData: missing
+      Unit: Count
+
+  dataTypeFunctionEvent:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      AlarmDescription: Codepipeline demo - dataType Function error rate
+      AlarmName: dataTypeFunctionEvent
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 3.0
+      TreatMissingData: missing
+      Unit: Count
+
+  comprehendFunctionEvent:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      AlarmDescription: Codepipeline demo - comprehend Function error rate
+      AlarmName: comprehendFunctionEvent
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 3.0
+      TreatMissingData: missing
+      Unit: Count
+
+  DefaultFunctionEvent:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      AlarmDescription: Codepipeline demo - Default Function error rate
+      AlarmName: DefaultFunctionEvent
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: 1
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Period: 60
+      Statistic: Sum
+      Threshold: 3.0
+      TreatMissingData: missing
+      Unit: Count
 
 Outputs:
   InputBucket:
