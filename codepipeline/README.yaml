@@ -1,0 +1,17 @@
+# Overview
+
+This application builds a set of lambda functions which will process different data types with many of hte AWS AI APIs, e.g. rekognition, comprehend, translate  etc.
+
+The aim is demonstrate a simple dataprocessing pipeline that can be part of a datalake.
+
+# Deployment
+
+The deployment is split into two parts. The deployment of the pipeline and the deployment of the data processing application
+
+## Deploy the pipeline
+
+aws cloudformation update-stack --stack-name codepipeline-demo --template-body file://code-pipeline.yaml --parameters ParameterKey=ProjectName,ParameterValue=MyApp --capabilities CAPABILITY_NAMED_IAM
+
+## Deploy the application
+
+

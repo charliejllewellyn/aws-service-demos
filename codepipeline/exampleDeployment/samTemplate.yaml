@@ -1,6 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Outputs the time
+
+Parameters:
+  dynamoDBTablename: 
+    Type: String
+    Description: DyanmoDB Table name to store provinance
+    Default: Artifacts
+
 Resources:
    
   InputBucket:
@@ -49,6 +56,9 @@ Resources:
       Policies:
       - AmazonDynamoDBFullAccess
       Timeout: 60
+      Environment:
+        Variables:
+          DYNAMODB_TABLENAME: !Ref dynamoDBTablename
 
   updateDynamo:
     Type: AWS::Serverless::Function
@@ -59,6 +69,9 @@ Resources:
       Policies:
       - AmazonDynamoDBFullAccess
       Timeout: 60
+      Environment:
+        Variables:
+          DYNAMODB_TABLENAME: !Ref dynamoDBTablename
 
   inconclusiveDataType:
     Type: AWS::Serverless::Function
@@ -347,6 +360,22 @@ Resources:
       Threshold: 3.0
       TreatMissingData: notBreaching
       Unit: Count
+
+  dyanmoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: id
+          AttributeType: S
+      KeySchema:
+        -
+          AttributeName: id
+          KeyType: HASH
+      TableName: !Ref dynamoDBTablename
+      ProvisionedThroughput: 
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
 
 Outputs:
   InputBucket:
