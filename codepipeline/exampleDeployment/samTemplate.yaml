@@ -115,10 +115,42 @@ Resources:
     Properties:
       Handler: rekognition.lambda_handler
       Runtime: python3.6
-      CodeUri: ./rekognition
+      CodeUri: ./rekDetectLabels
       Policies:
       - AmazonS3FullAccess
       - AmazonRekognitionFullAccess
+      Timeout: 60
+           
+  rekognitionFaceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: rekognition.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./rekDetectFaces
+      Policies:
+      - AmazonS3FullAccess
+      - AmazonRekognitionFullAccess
+      Timeout: 60
+
+  rekognitionTextFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: rekognition.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./rekDetectText
+      Policies:
+      - AmazonS3FullAccess
+      - AmazonRekognitionFullAccess
+      Timeout: 60
+
+  rekognitionComprehendFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: comprehend.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./rekComprehend
+      Policies:
+      - ComprehendFullAccess
       Timeout: 60
            
   DefaultFunction:
@@ -188,10 +220,54 @@ Resources:
               "Default": "inconclusiveDataType"
             },
                 "runRekognition": {
-                  "Type": "Task",
-                  "Resource": "${rekognition}",
+                  "Type": "Parallel",
+                        "Branches": [
+                    {
+                     "StartAt": "detectLabels",
+                     "States": {
+                       "detectLabels": {
+                         "Type": "Task",
+                         "Resource": "${rekognition}",
+                         "End": true
+                       }
+                     }
+                   },
+                   {
+                     "StartAt": "detectFaces",
+                     "States": {
+                       "detectFaces": {
+                         "Type": "Task",
+                         "Resource": "${rekognitionFaces}",
+                         "End": true
+                       }
+                     }
+                   },
+                   {
+                     "StartAt": "detectText",
+                     "States": {
+                       "detectText": {
+                         "Type": "Task",
+                         "Resource": "${rekognitionText}",
+                         "Next": "ifTextFoundProcess"
+                       },
+                       "ifTextFoundProcess": {
+                       	"Type": "Choice",
+                       	"Choices": [{
+                       		"Variable": "$[2].TextDetections",
+                       		"StringEquals": "",
+                       		"Next": "runRekComprehend"
+                       	}]
+                       },
+                       "runRekComprehend": {
+                       	"Type": "Task",
+                       	"Resource": "${rekcognitionComprehend}",
+                       	"End": true
+                       }
+                     }
+                   }
+                  ],
                   "Next": "writeOutput"
-                },    
+                },
                 "runComprehend": {
                   "Type": "Task",
                   "Resource": "${comprehend}",
@@ -199,7 +275,7 @@ Resources:
                 },
                 "inconclusiveDataType": {
                   "Type": "Task",
-                  "Resource": "arn:aws:lambda:eu-west-1:008369042577:function:codedeploy-demo-DefaultFunction-OSFXBKUUW5DB",
+                  "Resource": "${inconclusiveDataType}",
                   "End": true
                 },
                 "writeOutput": {
@@ -214,7 +290,7 @@ Resources:
                 }
               }
             }
-          - { dataType: !GetAtt dataType.Arn, default: !GetAtt DefaultFunction.Arn, comprehend: !GetAtt comprehendFunction.Arn, rekognition: !GetAtt rekognitionFunction.Arn, writeOutput: !GetAtt writeOutput.Arn, writeDynamo: !GetAtt writeDynamo.Arn, updateDynamo: !GetAtt updateDynamo.Arn, inconclusiveDataType: !GetAtt inconclusiveDataType.Arn }
+          - { dataType: !GetAtt dataType.Arn, default: !GetAtt DefaultFunction.Arn, comprehend: !GetAtt comprehendFunction.Arn, rekognition: !GetAtt rekognitionFunction.Arn, writeOutput: !GetAtt writeOutput.Arn, writeDynamo: !GetAtt writeDynamo.Arn, updateDynamo: !GetAtt updateDynamo.Arn, inconclusiveDataType: !GetAtt inconclusiveDataType.Arn, rekognitionFaces: !GetAtt rekognitionFaceFunction.Arn, rekognitionText: !GetAtt rekognitionTextFunction.Arn, rekcognitionComprehend: !GetAtt rekognitionComprehendFunction.Arn }
       RoleArn: !GetAtt StepFunctionRole.Arn
 
   rekognitionFunctionEvent:

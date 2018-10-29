@@ -1,0 +1,279 @@
+[
+  [
+    {
+      "dataType": "image/jpeg",
+      "ProcessingEngine": "RekognitionImageComprehend"
+    },
+    {
+      "Records": [
+        {
+          "eventVersion": "2.0",
+          "eventSource": "aws:s3",
+          "awsRegion": "eu-west-1",
+          "eventTime": "2018-10-26T17:18:19.060Z",
+          "eventName": "ObjectCreated:Put",
+          "userIdentity": {
+            "principalId": "AWS:AIDAIRTN7CO2RIWYGZ5CO"
+          },
+          "requestParameters": {
+            "sourceIPAddress": "54.240.197.227"
+          },
+          "responseElements": {
+            "x-amz-request-id": "13B74E2571928BEF",
+            "x-amz-id-2": "MQnymqMmZP1UDV594x/ffyDgK5ajZKFRsFHWk83QypK0ZGWhk1YK1pf6SrLZLwXEXCae6NGhHqo="
+          },
+          "s3": {
+            "s3SchemaVersion": "1.0",
+            "configurationId": "ffccba3f-5f42-43a4-8850-f1246f24a81c",
+            "bucket": {
+              "name": "myapp-inputbucket-e67kzgtt3hc7",
+              "ownerIdentity": {
+                "principalId": "A7XKL26GUIEJO"
+              },
+              "arn": "arn:aws:s3:::myapp-inputbucket-e67kzgtt3hc7"
+            },
+            "object": {
+              "key": "family.jpg",
+              "size": 241502,
+              "eTag": "9b33f37637edb088cf01ae2e6336dbb8",
+              "sequencer": "005BD34C5A21732FCA"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "Labels": [
+        {
+          "Name": "Human",
+          "Confidence": 99.29533386230469
+        },
+        {
+          "Name": "People",
+          "Confidence": 99.29533386230469
+        },
+        {
+          "Name": "Person",
+          "Confidence": 99.29533386230469
+        },
+        {
+          "Name": "Face",
+          "Confidence": 53.41069030761719
+        },
+        {
+          "Name": "Portrait",
+          "Confidence": 53.41069030761719
+        }
+      ],
+      "OrientationCorrection": "ROTATE_0",
+      "ResponseMetadata": {
+        "RequestId": "240b0c61-d943-11e8-b267-e9ced571a6f8",
+        "HTTPStatusCode": 200,
+        "HTTPHeaders": {
+          "content-type": "application/x-amz-json-1.1",
+          "date": "Fri, 26 Oct 2018 17:18:23 GMT",
+          "x-amzn-requestid": "240b0c61-d943-11e8-b267-e9ced571a6f8",
+          "content-length": "291",
+          "connection": "keep-alive"
+        },
+        "RetryAttempts": 0
+      }
+    }
+  ],
+  [
+    {
+      "dataType": "image/jpeg",
+      "ProcessingEngine": "RekognitionImageFaceDetection"
+    },
+    {
+      "Records": [
+        {
+          "eventVersion": "2.0",
+          "eventSource": "aws:s3",
+          "awsRegion": "eu-west-1",
+          "eventTime": "2018-10-26T17:18:19.060Z",
+          "eventName": "ObjectCreated:Put",
+          "userIdentity": {
+            "principalId": "AWS:AIDAIRTN7CO2RIWYGZ5CO"
+          },
+          "requestParameters": {
+            "sourceIPAddress": "54.240.197.227"
+          },
+          "responseElements": {
+            "x-amz-request-id": "13B74E2571928BEF",
+            "x-amz-id-2": "MQnymqMmZP1UDV594x/ffyDgK5ajZKFRsFHWk83QypK0ZGWhk1YK1pf6SrLZLwXEXCae6NGhHqo="
+          },
+          "s3": {
+            "s3SchemaVersion": "1.0",
+            "configurationId": "ffccba3f-5f42-43a4-8850-f1246f24a81c",
+            "bucket": {
+              "name": "myapp-inputbucket-e67kzgtt3hc7",
+              "ownerIdentity": {
+                "principalId": "A7XKL26GUIEJO"
+              },
+              "arn": "arn:aws:s3:::myapp-inputbucket-e67kzgtt3hc7"
+            },
+            "object": {
+              "key": "family.jpg",
+              "size": 241502,
+              "eTag": "9b33f37637edb088cf01ae2e6336dbb8",
+              "sequencer": "005BD34C5A21732FCA"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "FaceDetails": [
+        {
+          "BoundingBox": {
+            "Width": 0.2527777850627899,
+            "Height": 0.3791666626930237,
+            "Left": 0.0694444477558136,
+            "Top": 0.27222222089767456
+          },
+          "Landmarks": [
+            {
+              "Type": "eyeLeft",
+              "X": 0.17077851295471191,
+              "Y": 0.3949631154537201
+            },
+            {
+              "Type": "eyeRight",
+              "X": 0.24877072870731354,
+              "Y": 0.42977315187454224
+            },
+            {
+              "Type": "nose",
+              "X": 0.2204890251159668,
+              "Y": 0.4564211666584015
+            },
+            {
+              "Type": "mouthLeft",
+              "X": 0.1433829516172409,
+              "Y": 0.5137478113174438
+            },
+            {
+              "Type": "mouthRight",
+              "X": 0.23381458222866058,
+              "Y": 0.5534982681274414
+            }
+          ],
+          "Pose": {
+            "Roll": 14.86003589630127,
+            "Yaw": 21.071380615234375,
+            "Pitch": 24.002830505371094
+          },
+          "Quality": {
+            "Brightness": 77.56655883789062,
+            "Sharpness": 83.23492431640625
+          },
+          "Confidence": 99.9966049194336
+        },
+        {
+          "BoundingBox": {
+            "Width": 0.192592591047287,
+            "Height": 0.2888889014720917,
+            "Left": 0.7435185313224792,
+            "Top": 0.4749999940395355
+          },
+          "Landmarks": [
+            {
+              "Type": "eyeLeft",
+              "X": 0.7982872128486633,
+              "Y": 0.5955836176872253
+            },
+            {
+              "Type": "eyeRight",
+              "X": 0.866336464881897,
+              "Y": 0.5779889225959778
+            },
+            {
+              "Type": "nose",
+              "X": 0.8308957815170288,
+              "Y": 0.634591817855835
+            },
+            {
+              "Type": "mouthLeft",
+              "X": 0.8094145655632019,
+              "Y": 0.6926126480102539
+            },
+            {
+              "Type": "mouthRight",
+              "X": 0.879722535610199,
+              "Y": 0.6788098812103271
+            }
+          ],
+          "Pose": {
+            "Roll": -9.95767593383789,
+            "Yaw": -6.593029499053955,
+            "Pitch": 3.8418571949005127
+          },
+          "Quality": {
+            "Brightness": 82.80313873291016,
+            "Sharpness": 86.93206024169922
+          },
+          "Confidence": 99.99989318847656
+        },
+        {
+          "BoundingBox": {
+            "Width": 0.16203702986240387,
+            "Height": 0.24444444477558136,
+            "Left": 0.38148146867752075,
+            "Top": 0.49166667461395264
+          },
+          "Landmarks": [
+            {
+              "Type": "eyeLeft",
+              "X": 0.4384130537509918,
+              "Y": 0.585084855556488
+            },
+            {
+              "Type": "eyeRight",
+              "X": 0.49115172028541565,
+              "Y": 0.5859259963035583
+            },
+            {
+              "Type": "nose",
+              "X": 0.46652254462242126,
+              "Y": 0.605634331703186
+            },
+            {
+              "Type": "mouthLeft",
+              "X": 0.4558124244213104,
+              "Y": 0.6833081841468811
+            },
+            {
+              "Type": "mouthRight",
+              "X": 0.48030948638916016,
+              "Y": 0.6794667840003967
+            }
+          ],
+          "Pose": {
+            "Roll": 0.012837439775466919,
+            "Yaw": 2.404158115386963,
+            "Pitch": 22.07772445678711
+          },
+          "Quality": {
+            "Brightness": 86.29315185546875,
+            "Sharpness": 86.93206024169922
+          },
+          "Confidence": 99.96392822265625
+        }
+      ],
+      "OrientationCorrection": "ROTATE_0",
+      "ResponseMetadata": {
+        "RequestId": "240a9730-d943-11e8-b267-e9ced571a6f8",
+        "HTTPStatusCode": 200,
+        "HTTPHeaders": {
+          "content-type": "application/x-amz-json-1.1",
+          "date": "Fri, 26 Oct 2018 17:18:23 GMT",
+          "x-amzn-requestid": "240a9730-d943-11e8-b267-e9ced571a6f8",
+          "content-length": "2026",
+          "connection": "keep-alive"
+        },
+        "RetryAttempts": 0
+      }
+    }
+  ]
+]

@@ -1,0 +1,43 @@
+[
+  {
+    "dataType": "image/jpeg"
+  },
+  {
+    "Records": [
+      {
+        "eventVersion": "2.0",
+        "eventSource": "aws:s3",
+        "awsRegion": "eu-west-1",
+        "eventTime": "2018-10-26T19:08:43.032Z",
+        "eventName": "ObjectCreated:Put",
+        "userIdentity": {
+          "principalId": "AWS:AIDAIRTN7CO2RIWYGZ5CO"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "54.240.197.227"
+        },
+        "responseElements": {
+          "x-amz-request-id": "9630792ACEEEE142",
+          "x-amz-id-2": "C5zlpyoStrF/ckkJw3zRBbQgAB9j26I1rnplfHbIY3b8rouXiihJQShX/cdkQGwZyqvnSzU2Rt4="
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "ffccba3f-5f42-43a4-8850-f1246f24a81c",
+          "bucket": {
+            "name": "myapp-inputbucket-e67kzgtt3hc7",
+            "ownerIdentity": {
+              "principalId": "A7XKL26GUIEJO"
+            },
+            "arn": "arn:aws:s3:::myapp-inputbucket-e67kzgtt3hc7"
+          },
+          "object": {
+            "key": "family.jpg",
+            "size": 241502,
+            "eTag": "9b33f37637edb088cf01ae2e6336dbb8",
+            "sequencer": "005BD3663A2BE39E33"
+          }
+        }
+      }
+    ]
+  }
+]
