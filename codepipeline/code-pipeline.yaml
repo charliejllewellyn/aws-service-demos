@@ -57,6 +57,20 @@ Resources:
         - 
           Ref: "CloudFormationRole"
 
+  ElasticSearchPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: !Join [ '', [ !Ref ProjectName, '-ElasticSearch-Policy' ] ]
+      PolicyDocument:
+        Statement:
+        - Action:
+          - es:*
+          Resource: "*"
+          Effect: Allow
+      Roles:
+        - 
+          Ref: "CloudFormationRole"
+
   # Creates an IAM role for CodePipeline
   CodepipelineServiceRole:
     Type: "AWS::IAM::Role"
