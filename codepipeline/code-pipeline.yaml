@@ -403,7 +403,7 @@ Resources:
               Configuration:
                 ActionMode: CHANGE_SET_EXECUTE
                 ChangeSetName: !Join [ '', [ !Ref ProjectName, '-changeset' ] ]
-                StackName: !Ref ProjectName
+                StackName: !Join [ '', [ !Ref ProjectName, '-application' ] ]
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
