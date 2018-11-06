@@ -5,35 +5,52 @@ This guide will walk you through creating a VPN between two sites to simulate cr
   <img width="300" src="https://github.com/charliejllewellyn/aws-service-demos/blob/master/vpn/images/vpn.png">
 </p>
 
-# Pre-reqs
+## Pre-reqs
 
-## Required
+### Required
 You will need to have created a keypair prior to running the CloudFormation script. To setup a keypair follow the documentation [https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html](here).
 
-## Optional
+### Optional
+A second AWS account allowing you to create two completly seperate environments.
 
 # Deployment
 
 ## Fake on-premise environment
 The first step will create a new VPC with two private subnets and two public subnets. The public subnets are attached to an Internet Gateway. It then deploys a Cisco CSR 1000v from the marketplace and attaches one interface to a public subnets and a second interface to a private subnet. The public interface is assigned an elastic IP address. A second instance is deployed for testing the VPN connection and is only attached to a private subnet.
 
-To deploy the stack run:
+### Deploy via the UI
 
+EU (Ireland) | [![Launch AWS Security Workshop in eu-west-1](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/new?stackName=vpnOnPrem&templateURL=https://s3-eu-west-1.amazonaws.com/cjl-cloudformation-stack-templates/vpnDemo-onprem.yaml)
+
+### Deploy via the CLI
 ```
-aws cloudformation create-stack --stack-name vpnDemo --template-body file://vpn-demo.yaml --capabilities CAPABILITY_IAM
+aws cloudformation create-stack --stack-name vpnOnPrem --template-body file://vpn-demo.yaml --capabilities CAPABILITY_IAM
 ```
 
 In order to complete the next part of the setup you will need the Elastic IP address assigned to the CSR.
-
 ```
-aws cloudformation wait stack-create-complete --stack-name vpnDemo && aws cloudformation describe-stacks --stack-name vpnDemo --query Stacks[0].Outputs[0].OutputValue
+aws cloudformation wait stack-create-complete --stack-name vpnOnPrem && aws cloudformation describe-stacks --stack-name vpnOnPrem --query Stacks[0].Outputs[0].OutputValue
 ```
 
 Record the IP address as you will need it later.
 
 ## Create the AWS environment
 
-Deploy the CloudFormation template into the second account.
+*Note:* if you are using a second accound login into that account now
+
+### Deploy via the UI
+
+EU (Ireland) | [![Launch AWS Security Workshop in eu-west-1](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/new?stackName=vpnAws&templateURL=https://s3-eu-west-1.amazonaws.com/cjl-cloudformation-stack-templates/vpnDemo-aws.yaml)
+
+### Deploy via the CLI
+```
+aws cloudformation create-stack --stack-name vpnAws --template-body file://vpn-demo.yaml --capabilities CAPABILITY_IAM
+```
+
+In order to complete the next part of the setup you will need the Elastic IP address assigned to the CSR.
+```
+aws cloudformation wait stack-create-complete --stack-name vpnAws && aws cloudformation describe-stacks --stack-name vpnAws --query Stacks[0].Outputs[0].OutputValue
+```
 
 # Setup your AWS VPN
 
@@ -58,7 +75,7 @@ Deploy the CloudFormation template into the second account.
   
   Leave all other values as default and click *Create VPN Connection*
 
-### Step 4 - Download VOPN Configuration
+### Step 4 - Download VPN Configuration
 
 1. At the top of hte page click *Download VPN Configuration*
 1. Select, Cisco, CSRv AMI, IOS 12.4+
