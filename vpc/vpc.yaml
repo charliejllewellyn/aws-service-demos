@@ -14,23 +14,48 @@ Resources:
       CidrBlock: !Ref vpcCidrBlock
       EnableDnsSupport: true
       EnableDnsHostnames: true
-      Tags:
-      - Key: Customer
-        Value: CustomerA
 
-  mySubnetA:
+  publicSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
+      MapPublicIpOnLaunch: true
       VpcId: !Ref vpc
-      CidrBlock: !Select [0, !Cidr [!Ref vpcCidrBlock, 2, 4]]
+      CidrBlock: !Select [0, !Cidr [!Ref vpcCidrBlock, 6, 4]]
       AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
+      Tags:
+        Key: Name
+        Value: !Join [ "", [ !Ref "public-", a ] ]
 
-  mySubnetB:
+  publicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref vpc
+      CidrBlock: !Select [1, !Cidr [!Ref vpcCidrBlock, 6, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
+      Tags:
+        Key: Name
+        Value: !Join [ "", [ !Ref "public-", a ] ]
+
+  privateSubnetA:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref vpc
-      CidrBlock: !Select [1, !Cidr [!Ref vpcCidrBlock, 2, 4]]
+      CidrBlock: !Select [2, !Cidr [!Ref vpcCidrBlock, 6, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
+      Tags:
+        Key: Name
+        Value: !Join [ "", [ !Ref "private-", a ] ]
+
+  privateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Select [3, !Cidr [!Ref vpcCidrBlock, 6, 4]]
       AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
+      Tags:
+        Key: Name
+        Value: !Join [ "", [ !Ref "private-", a ] ]
 
   myInternetGateway:
     Type: "AWS::EC2::InternetGateway"
@@ -41,7 +66,7 @@ Resources:
       InternetGatewayId: !Ref myInternetGateway
       VpcId: !Ref vpc
 
-  routeTable:
+  publicRouteTable:
     Type: "AWS::EC2::RouteTable"
     Properties: 
       VpcId: !Ref vpc
@@ -51,19 +76,62 @@ Resources:
     Properties: 
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref myInternetGateway
-      RouteTableId: !Ref routeTable
+      RouteTableId: !Ref publicRouteTable
 
   subnetAssA:
     Type: "AWS::EC2::SubnetRouteTableAssociation"
     Properties:
-      RouteTableId: !Ref routeTable
-      SubnetId: !Ref mySubnetA
+      RouteTableId: !Ref publicRouteTable
+      SubnetId: !Ref publicSubnetA
 
   subnetAssB:
     Type: "AWS::EC2::SubnetRouteTableAssociation"
     Properties:
-      RouteTableId: !Ref routeTable
-      SubnetId: !Ref mySubnetB
+      RouteTableId: !Ref publicRouteTable
+      SubnetId: !Ref publicSubnetB
+
+  vpcFlowLogRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - 
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "vpc-flow-logs.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+
+  vpcFlowLogPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          - logs:DescribeLogGroups
+          - logs:DescribeLogStreams
+          Resource:
+          - arn:aws:logs:*:*:*
+      PolicyName: vpcFlowLogPolicy
+      Roles:
+      - !Ref vpcFlowLogRole
+
+  vpcFlowLog:
+    Type: "AWS::EC2::FlowLog"
+    Properties:
+      DeliverLogsPermissionArn : !GetAtt vpcFlowLogRole.Arn
+      LogGroupName : securityGroupVpcFlowLogs
+      ResourceId : !Ref vpc
+      ResourceType : VPC
+      TrafficType : ALL
 
 Outputs:
   vpcId:
@@ -71,7 +139,16 @@ Outputs:
     Value: !Ref vpc
   subnetAId:
     Description: The ID of Subnet A
-    Value: !Ref mySubnetA
+    Value: !Ref publicSubnetA
   subnetBId:
     Description: The ID of Subnet A
-    Value: !Ref mySubnetB
+    Value: !Ref publicSubnetB
+  privateSubnetAId:
+    Description: The ID of Subnet A
+    Value: !Ref publicSubnetA
+  privateSubnetBId:
+    Description: The ID of Subnet A
+    Value: !Ref publicSubnetB
+  DefaultSecurityGroup:
+    Description: The default subnet Id
+    Value: !GetAtt vpc.DefaultSecurityGroup
