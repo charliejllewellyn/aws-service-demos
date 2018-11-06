@@ -24,7 +24,7 @@ Resources:
       AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
       Tags:
         Key: Name
-        Value: !Join [ "", [ !Ref "public-", a ] ]
+        Value: !Join [ "", [ "public-", a ] ]
 
   publicSubnetB:
     Type: AWS::EC2::Subnet
@@ -35,7 +35,7 @@ Resources:
       AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
       Tags:
         Key: Name
-        Value: !Join [ "", [ !Ref "public-", a ] ]
+        Value: !Join [ "", [ "public-", a ] ]
 
   privateSubnetA:
     Type: AWS::EC2::Subnet
@@ -45,7 +45,7 @@ Resources:
       AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
       Tags:
         Key: Name
-        Value: !Join [ "", [ !Ref "private-", a ] ]
+        Value: !Join [ "", [ "private-", a ] ]
 
   privateSubnetB:
     Type: AWS::EC2::Subnet
@@ -55,7 +55,7 @@ Resources:
       AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
       Tags:
         Key: Name
-        Value: !Join [ "", [ !Ref "private-", a ] ]
+        Value: !Join [ "", [ "private-", a ] ]
 
   myInternetGateway:
     Type: "AWS::EC2::InternetGateway"
