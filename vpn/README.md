@@ -1,6 +1,10 @@
 # Overview
 This guide will walk you through creating a VPN between two sites to simulate creating a VPN between on-premise infrastructure and an AWS VPC.
 
+<p align="center">
+  <img width="300" src="https://github.com/charliejllewellyn/aws-services-demos/blob/master/vpn/images/vpn.png">
+</p>
+
 # Pre-reqs
 
 ## Required
