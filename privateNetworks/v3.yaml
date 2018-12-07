@@ -1,0 +1,2209 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:
+  "Private Networks QS v2 - Core - v0.001"
+
+# Defines the Parameter screen groupings
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "General"
+        Parameters:
+          - AvailabilityZone1
+          - AvailabilityZone2
+      -
+        Label:
+          default: "Gateway VPC"
+        Parameters:
+          - GatewayVpcCidrBlock
+      -
+        Label:
+          default: "App VPC"
+        Parameters:
+          - AppVpcCidrBlock
+          - AppServerKeyPair
+          - AppServerInstanceSize
+          - AppServerInstanceCount
+      -
+        Label:
+          default: "Outbound Proxy"
+        Parameters:
+          - OutboundProxyServerKeyPair
+          - OutboundProxyServerInstanceSize
+          - OutboundProxyServerInstanceCount
+    ParameterLabels:
+      ##### General Parameter Labels
+      AvailabilityZone1:
+        default: "Availabilty Zone 1"
+      AvailabilityZone2:
+        default: "Availabilty Zone 2"
+      ##### Gateway VPC Parameter Labels
+      GatewayVpcCidrBlock:
+        default: Gateway VPC CIDR Block
+      AppVpcCidrBlock:
+        default: Application VPC CIDR Block
+      AppServerKeyPair:
+        default: "Key pair for App"
+      AppServerInstanceSize:
+        default: "App Server instance size"
+      AppServerInstanceCount:
+        default: "App Server instance count"
+      OutboundProxyServerKeyPair:
+        default: "Key pair for OutboundProxy"
+      OutboundProxyInstanceSize:
+        default: "OutboundProxy Server instance size"
+      OutboundProxyServerInstanceCount:
+        default: "OutboundProxy Server instance count"
+
+Parameters:
+  # General Parameters
+  AvailabilityZone1:                    # Choose AZ1
+    Type: "AWS::EC2::AvailabilityZone::Name"
+    Default: "eu-west-2a"
+    Description: "First AZ to deploy to"
+  AvailabilityZone2:                    # Choose AZ2
+    Type: "AWS::EC2::AvailabilityZone::Name"
+    Default: "eu-west-2b"
+    Description: "Second AZ to deploy to"
+  GatewayVpcCidrBlock:                  # CIDR block for the Gateway VPC
+    Type: String
+    Default: "10.0.0.0/25"
+    Description: "The CIDR block for the Gateway VPC"
+  AppVpcCidrBlock:                  # CIDR block for the Gateway VPC
+    Type: String
+    Default: "192.168.200.0/24"
+    Description: "The CIDR block for the Application VPC"
+  AppServerKeyPair:                           # Key Pair to use for the App Hosts
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: "mhj-aws-eu-west-2"
+    Description: "Key pair used to access App instances"
+  AppServerInstanceSize:                # Size of App Server Instance
+    Type: String
+    Default: "t2.micro"
+    AllowedValues:
+      - t2.micro
+      - t2.large
+      - m4.large
+      - c4.xlarge
+    Description: "Instance type to use for App Server"
+  AppServerInstanceCount:            # Number of App Server Instances in the ASG
+    Type: String
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+    Description: "Number of APp Server instances to deploy in the Auto Scaling Group"
+  OutboundProxyServerKeyPair:                           # Key Pair to use for the OutboundProxy Hosts
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: "mhj-aws-eu-west-2"
+    Description: "Key pair used to access OutboundProxy instances"
+  OutboundProxyServerInstanceSize:                # Size of OutboundProxy Server Instance
+    Type: String
+    Default: "t2.micro"
+    AllowedValues:
+      - t2.micro
+      - t2.large
+      - m4.large
+      - c4.xlarge
+    Description: "Instance type to use for OutboundProxy Server"
+  OutboundProxyServerInstanceCount:            # Number of OutboundProxy Server Instances in the ASG
+    Type: String
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+    Description: "Number of OutboundProxy Server instances to deploy in the Auto Scaling Group"
+
+
+
+Mappings:
+  AWSRegionMap:                         # Maps AMIs and ELB accounts based on Region
+    AMI:
+      AMZNLINUXHVM: amzn-ami-hvm-2017.09.1.20180103-x86_64-gp2
+      AMZNLINUX2HVM: amzn2-ami-hvm-2.0.20180622.1-x86_64-gp2
+    eu-west-2:                          # London
+      AMZNLINUXHVM: "ami-63243c07"
+      AMZNLINUX2HVM: "ami-b8b45ddf"
+      ELBAccountID: 652711504416
+    eu-west-1:                          # Dublin
+      AMZNLINUX2HVM: "ami-466768ac"
+      ELBAccountID: 156460612806
+    eu-central-1:                       # Frankfurt
+      ELBAccountID: 054676820928
+    us-east-1:                          # North Virginia
+      ELBAccountID: 127311923021
+    us-east-2:                          # Ohio
+      ELBAccountID: 033677994240
+    us-west-1:                          # North California
+      ELBAccountID: 027434742980
+    us-west-2:                          # Oregon
+      ELBAccountID: 797873946194
+    ca-central-1:                       # Montreal
+      ELBAccountID: 985666609251
+    ap-southeast-1:                     # Singapore
+      ELBAccountID: 114774131450
+    ap-southeast-2:                     # Sydney
+      ELBAccountID: 783225319266
+    ap-northeast-2:                     # Seoul
+      ELBAccountID: 600734575887
+    ap-northeast-1:                     # Tokyo
+      ELBAccountID: 582318560864
+    ap-south-1:                         # Mumbai
+      ELBAccountID: 718504428378
+    sa-south-1:                         # Sao Paulo
+      ELBAccountID: 507241528517
+
+
+Resources:
+
+  # -----------------------------------------------
+  # S3 Logging Bucket configuration
+  # -----------------------------------------------
+
+  # Used to store ELB logs
+  LoggingBucket:                        # S3 Logging Bucket to capture ELB logs
+    Type: "AWS::S3::Bucket"
+    DeletionPolicy: Retain
+    Properties:
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-LoggingBucket.s3"
+  LoggingBucketPolicy:                  # S3 Logging Bucket Policy
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref LoggingBucket
+      PolicyDocument:
+        Statement:
+          - Action: "s3:PutObject"
+            Effect: Allow
+            Resource: !Sub "arn:aws:s3:::${LoggingBucket}/Logs/*"
+            Principal:
+              AWS:
+                - !FindInMap [AWSRegionMap, !Ref "AWS::Region", ELBAccountID]
+
+
+  # -----------------------------------------------
+  # Gateway VPC Configuration
+  # -----------------------------------------------
+  # Configure the Gateway VPC, as a /25 CIDR block, with 4 subnets; 2 x DX-facing subnets
+  # that can route to the Private Networks, and 2 x AWS-facing hosts that can route to the
+  # Application VPC.
+
+  GatewayVpc:                                  
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: !Ref GatewayVpcCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: "default"
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-gw.vpc"
+  GatewayVpcSubnetDx1:                     
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone1
+      CidrBlock:
+        Fn::Select:
+          - 0
+          - Fn::Cidr:
+            - !Ref GatewayVpcCidrBlock
+            - 4
+            - 5
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-dx1.subnet.gw.vpc"
+      VpcId: !Ref GatewayVpc
+  GatewayVpcSubnetDx2:                     
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone2
+      CidrBlock:
+        Fn::Select:
+          - 1
+          - Fn::Cidr:
+            - !Ref GatewayVpcCidrBlock
+            - 4
+            - 5
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-dx2.subnet.gw.vpc"
+      VpcId: !Ref GatewayVpc
+  GatewayVpcSubnetAws1:                    
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone1
+      CidrBlock:
+        Fn::Select:
+          - 2
+          - Fn::Cidr:
+            - !Ref GatewayVpcCidrBlock
+            - 4
+            - 5
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-aws1.subnet.gw.vpc"
+      VpcId: !Ref GatewayVpc
+  GatewayVpcSubnetAws2:                    
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone2
+      CidrBlock:
+        Fn::Select:
+          - 3
+          - Fn::Cidr:
+            - !Ref GatewayVpcCidrBlock
+            - 4
+            - 5
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-aws2.subnet.gw.vpc"
+      VpcId: !Ref GatewayVpc
+
+  GatewayVpcDxRouteTable:             
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref GatewayVpc
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-dx.rtb.gw.vpc"
+  GatewayVpcDxRouteTableAssocGatewayVpcSubnetDx1: 
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GatewayVpcSubnetDx1
+      RouteTableId: !Ref GatewayVpcDxRouteTable
+  GatewayVpcDxRouteTableAssocGatewayVpcSubnetDx2: 
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GatewayVpcSubnetDx2
+      RouteTableId: !Ref GatewayVpcDxRouteTable
+  GatewayVpcAwsRouteTable:             
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref GatewayVpc
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-aws.rtb.gw.vpc"
+  GatewayVpcAwsRouteTableAssocGatewayVpcSubnetAws1: 
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GatewayVpcSubnetAws1
+      RouteTableId: !Ref GatewayVpcAwsRouteTable
+  GatewayVpcAwsRouteTableAssocGatewayVpcSubnetAws2: 
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref GatewayVpcSubnetAws2
+      RouteTableId: !Ref GatewayVpcAwsRouteTable
+
+
+  GatewayVpcInterfaceEndpointsSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub "${AWS::StackName} Interface Endpoints"
+      VpcId: !Ref GatewayVpc
+      SecurityGroupIngress:
+      - IpProtocol: tcp   
+        FromPort: '443'
+        ToPort: '443'
+        CidrIp: !Ref GatewayVpcCidrBlock
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-vpce.sg.gw.vpc"
+
+
+  # Create AWS PrivateLink endpoints for EC2, CloudWatch Logs, CloudWatch, SSM, and S3
+  # This removes the need for either a direct or proxied Internet connection
+  # PrivateDNS is enabled on all of the Interface Endpoints
+  GatewayVpcEc2MessagesEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties: 
+      VpcId: !Ref GatewayVpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref GatewayVpcSubnetAws1
+        - !Ref GatewayVpcSubnetAws2
+      SecurityGroupIds: 
+        - !Ref GatewayVpcInterfaceEndpointsSecurityGroup
+  GatewayVpcCloudWatchLogsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn:
+      - GatewayVpcEc2MessagesEndpoint
+    Properties: 
+      VpcId: !Ref GatewayVpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref GatewayVpcSubnetAws1
+        - !Ref GatewayVpcSubnetAws2
+      SecurityGroupIds: 
+        - !Ref GatewayVpcInterfaceEndpointsSecurityGroup
+  GatewayVpcCloudWatchEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn:
+      - GatewayVpcCloudWatchLogsEndpoint
+    Properties: 
+      VpcId: !Ref GatewayVpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.monitoring
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref GatewayVpcSubnetAws1
+        - !Ref GatewayVpcSubnetAws2
+      SecurityGroupIds: 
+        - !Ref GatewayVpcInterfaceEndpointsSecurityGroup
+  GatewayVpcSSMEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn:
+      - GatewayVpcCloudWatchEndpoint
+    Properties: 
+      VpcId: !Ref GatewayVpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref GatewayVpcSubnetAws1
+        - !Ref GatewayVpcSubnetAws2
+      SecurityGroupIds: 
+        - !Ref GatewayVpcInterfaceEndpointsSecurityGroup
+  GatewayVpcS3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn:
+      - GatewayVpcSSMEndpoint
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - 's3:GetObject'
+            Resource:
+              - 'arn:aws:s3:::amazonlinux.*.amazonaws.com/*'
+              - 'arn:aws:s3:::packages.*.amazonaws.com/*'
+              - 'arn:aws:s3:::repo.*.amazonaws.com/*'
+              - 'arn:aws:s3:::mhj-aws-testing-lhr/*'
+              - !Sub 'arn:aws:s3:::aws-ssm-${AWS::Region}/*'
+              - !Sub 'arn:aws:s3:::aws-windows-downloads-${AWS::Region}/*'
+              - !Sub 'arn:aws:s3:::amazon-ssm-${AWS::Region}/*'
+              - !Sub 'arn:aws:s3:::amazon-ssm-packages-${AWS::Region}/*'
+              - !Sub 'arn:aws:s3:::${AWS::Region}-birdwatcher-prod/*'
+      RouteTableIds:
+        - !Ref GatewayVpcDxRouteTable
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      VpcId: !Ref GatewayVpc
+  GatewayVpcSSMmessagesEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn:
+      - GatewayVpcCloudWatchEndpoint
+    Properties:
+      VpcId: !Ref GatewayVpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref GatewayVpcSubnetAws1
+        - !Ref GatewayVpcSubnetAws2
+      SecurityGroupIds:
+        - !Ref GatewayVpcInterfaceEndpointsSecurityGroup
+
+  # GatewayVpcCloudFormationEndpoint:
+  #   Type: AWS::EC2::VPCEndpoint
+  #   Properties: 
+  #     VpcId: !Ref GatewayVpc
+  #     ServiceName: !Sub com.amazonaws.${AWS::Region}.cloudformation
+  #     VpcEndpointType: Interface
+  #     PrivateDnsEnabled: true
+  #     SubnetIds: 
+  #       - !Ref GatewayVpcSubnetAws1
+  #       - !Ref GatewayVpcSubnetAws2
+  #     SecurityGroupIds: 
+  #       - !Ref AppVpcInterfaceEndpointsSecurityGroup
+
+
+
+
+
+  # -----------------------------------------------
+  # Application VPC Configuration
+  # -----------------------------------------------
+
+  # Configure the Gateway VPC, as a /24 CIDR block, with 2 private subnets
+  AppVpc:    
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: !Ref AppVpcCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: "default"
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-app.vpc"
+  AppVpcSubnetPri1:  
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone1
+      CidrBlock:
+        Fn::Select:
+          - 0
+          - Fn::Cidr:
+            - !Ref AppVpcCidrBlock
+            - 2
+            - 6
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-pri1.subnet.app.vpc"
+      VpcId: !Ref AppVpc
+  AppVpcSubnetPri2: 
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone2
+      CidrBlock:
+        Fn::Select:
+          - 1
+          - Fn::Cidr:
+            - !Ref AppVpcCidrBlock
+            - 2
+            - 6
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-pri2.subnet.app.vpc"
+      VpcId: !Ref AppVpc
+
+  # Configure a single route table, with local routes only, and associate them
+  AppVpcPriRouteTable: 
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref AppVpc
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-pri.rtb.app.vpc"
+  AppVpcPriRouteTableAssocAppVpcSubnetPri1: 
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref AppVpcSubnetPri1
+      RouteTableId: !Ref AppVpcPriRouteTable
+  AppVpcPriRouteTableAssocAppVpcSubnetPri2: 
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref AppVpcSubnetPri2
+      RouteTableId: !Ref AppVpcPriRouteTable
+
+  # Create a Security Group for all of the AWS Service Endpoints in this VPC
+  # Allow 443 traffic from this VPC into those services - allows any instances
+  # to use those interfaces
+  AppVpcInterfaceEndpointsSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub "${AWS::StackName} Interface Endpoints"
+      VpcId: !Ref AppVpc
+      SecurityGroupIngress:
+      - IpProtocol: tcp   
+        FromPort: '443'
+        ToPort: '443'
+        CidrIp: !Ref AppVpcCidrBlock
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-vpce.sg.app.vpc"
+
+  # Create AWS PrivateLink endpoints for EC2, CloudWatch Logs, CloudWatch, SSM, and S3
+  # This removes the need for either a direct or proxied Internet connection
+  # PrivateDNS is enabled on all of the Interface Endpoints
+  AppVpcEc2MessagesEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties: 
+      VpcId: !Ref AppVpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref AppVpcSubnetPri1
+        - !Ref AppVpcSubnetPri2
+      SecurityGroupIds: 
+        - !Ref AppVpcInterfaceEndpointsSecurityGroup
+  AppVpcCloudWatchLogsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn:
+      - AppVpcEc2MessagesEndpoint
+    Properties: 
+      VpcId: !Ref AppVpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref AppVpcSubnetPri1
+        - !Ref AppVpcSubnetPri2
+      SecurityGroupIds: 
+        - !Ref AppVpcInterfaceEndpointsSecurityGroup
+  AppVpcCloudWatchEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn:
+      - AppVpcCloudWatchLogsEndpoint
+    Properties: 
+      VpcId: !Ref AppVpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.monitoring
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref AppVpcSubnetPri1
+        - !Ref AppVpcSubnetPri2
+      SecurityGroupIds: 
+        - !Ref AppVpcInterfaceEndpointsSecurityGroup
+  AppVpcSSMEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn:
+      - AppVpcCloudWatchEndpoint
+    Properties: 
+      VpcId: !Ref AppVpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds: 
+        - !Ref AppVpcSubnetPri1
+        - !Ref AppVpcSubnetPri2
+      SecurityGroupIds: 
+        - !Ref AppVpcInterfaceEndpointsSecurityGroup
+  AppVpcS3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn:
+      - AppVpcSSMEndpoint
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - 's3:GetObject'
+            Resource:
+              - 'arn:aws:s3:::amazonlinux.*.amazonaws.com/*'
+              - 'arn:aws:s3:::packages.*.amazonaws.com/*'
+              - 'arn:aws:s3:::repo.*.amazonaws.com/*'
+              - !Sub 'arn:aws:s3:::aws-ssm-${AWS::Region}/*'
+              - !Sub 'arn:aws:s3:::aws-windows-downloads-${AWS::Region}/*'
+              - !Sub 'arn:aws:s3:::amazon-ssm-${AWS::Region}/*'
+              - !Sub 'arn:aws:s3:::amazon-ssm-packages-${AWS::Region}/*'
+              - !Sub 'arn:aws:s3:::${AWS::Region}-birdwatcher-prod/*'
+      RouteTableIds:
+        - !Ref AppVpcPriRouteTable
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      VpcId: !Ref AppVpc
+  AppVpcSSMmessagesEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn:
+      - AppVpcS3Endpoint
+    Properties:
+      VpcId: !Ref AppVpc
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref AppVpcSubnetPri1
+        - !Ref AppVpcSubnetPri2
+      SecurityGroupIds:
+        - !Ref AppVpcInterfaceEndpointsSecurityGroup
+  # AppVpcCloudFormationEndpoint:
+  #   Type: AWS::EC2::VPCEndpoint
+  #   Properties: 
+  #     VpcId: !Ref AppVpc
+  #     ServiceName: !Sub com.amazonaws.${AWS::Region}.cloudformation
+  #     VpcEndpointType: Interface
+  #     PrivateDnsEnabled: true
+  #     SubnetIds: 
+  #       - !Ref AppVpcSubnetPri1
+  #       - !Ref AppVpcSubnetPri2
+  #     SecurityGroupIds: 
+  #       - !Ref AppVpcInterfaceEndpointsSecurityGroup
+
+
+  PrivateHostedZone:
+    Type: "AWS::Route53::HostedZone"
+    DependsOn:
+      - Route53PrivateDNSLogGroup
+      - GatewayVpc
+      - AppVpc
+    Properties: 
+      HostedZoneTags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-private.dns"
+      Name: private
+      VPCs:
+        -
+          VPCId: !Ref GatewayVpc
+          VPCRegion: !Ref AWS::Region
+        -
+          VPCId: !Ref AppVpc
+          VPCRegion: !Ref AWS::Region
+
+
+  # -----------------------------------------------
+  # Application Server / NLB / PrivateLink Service Configuration
+  # -----------------------------------------------
+
+  # Create an App Server security group; this will accept traffic proxied from the Inbound ALB
+  # in the GatewayVPC (via a PrivateLink endpoint), and so has to allow two sources of inbound traffic:
+  # 1. Traffic from the GatewayVPC ALB (which are the GatewayVpcSubnetDx1 and 2 subnets) on port 8443,
+  # 2. Traffic from the AppVPC NLB on port 8443 for health-check purposes
+  # 3. (TEMP) SSH access from a peered VPC for testing only
+  AppServerSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub "${AWS::StackName} App Servers"
+      VpcId: !Ref AppVpc
+      SecurityGroupIngress:
+      - IpProtocol: tcp   
+        FromPort: '8443'
+        ToPort: '8443'
+        CidrIp:
+          Fn::Select:
+            - 0
+            - Fn::Cidr:
+              - !Ref GatewayVpcCidrBlock
+              - 4
+              - 5
+      - IpProtocol: tcp   
+        FromPort: '8443'
+        ToPort: '8443'
+        CidrIp:
+          Fn::Select:
+            - 1
+            - Fn::Cidr:
+              - !Ref GatewayVpcCidrBlock
+              - 4
+              - 5
+      - IpProtocol: tcp   
+        FromPort: '8443'
+        ToPort: '8443'
+        CidrIp:
+          Fn::Select:
+            - 0
+            - Fn::Cidr:
+              - !Ref AppVpcCidrBlock
+              - 2
+              - 6
+      - IpProtocol: tcp   
+        FromPort: '8443'
+        ToPort: '8443'
+        CidrIp:
+          Fn::Select:
+            - 1
+            - Fn::Cidr:
+              - !Ref AppVpcCidrBlock
+              - 2
+              - 6
+      - IpProtocol: tcp   
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: '10.1.0.0/16'
+        # SourceSecurityGroupId:
+        #   "Fn::ImportValue": !Sub ${MgmtStackName}BastionSecurityGroup
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-appserver.sg.app.vpc"
+
+  # Create an App Server launch template that uses UserData shell scripts to install and configure
+  # the hostname, CloudWatch Logs agent, Nginx (plus private cert) - note that this would be done
+  # by cfn-init in the future, once CloudFormation has PrivateLink support
+  AppServerLaunchTemplate:
+    Type: "AWS::EC2::LaunchTemplate"
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          AWSTools:
+            - "setHostName"
+            - "cfnInstall"
+          CloudWatchAgentInstallSet:
+            - "cloudWatchAgentInstall"
+            - 
+              ConfigSet: "CloudWatchAgentConfigureSet"
+          CloudWatchAgentConfigureSet:
+            - "cloudWatchAgentConfigure"
+          AppInstall:
+            - "nginxInstall"
+        cloudWatchAgentInstall:
+          commands:
+            01-download-agent:
+              test: "! rpm -q amazon-cloudwatch-agent"
+              command: "wget https://s3.amazonaws.com/amazoncloudwatch-agent/linux/amd64/latest/AmazonCloudWatchAgent.zip"
+            02-unzip-agent:
+              test: "! rpm -q amazon-cloudwatch-agent"
+              command: "unzip -o AmazonCloudWatchAgent.zip"
+            03-install-agent:
+              test: "! rpm -q amazon-cloudwatch-agent"
+              command: "./install.sh >/dev/null"
+        cloudWatchAgentConfigure:
+          commands:
+            01-configure-agent:
+              command: 
+                !Sub |
+                  /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -c ssm:${CloudWatchLogConfigParameter} -m ec2 -s
+              test: "rpm -q amazon-cloudwatch-agent"
+        setHostName:
+          files:
+            /etc/hosts:
+              content:
+                !Sub |
+                  127.0.0.1  app-server-asg  localhost
+            /etc/hostname:
+              content:
+                !Sub |
+                  app-server-asg
+            /etc/sysconfig/network:
+              content:
+                !Sub |
+                  NETWORKING=yes
+                  HOSTNAME=app-server-asg
+                  NOZEROCONF=yes
+          commands:
+            01-sethostname:
+              command: "hostname app-server-asg"
+        cfnInstall:
+          files:
+            /etc/cfn/cfn-hup.conf:
+              content:
+                !Sub |
+                  [main]
+                  stack=${AWS::StackId}
+                  region=${AWS::Region}
+                  interval=2
+              mode: "000644"
+              owner: "root"
+              group: "root"
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content:
+                !Sub |
+                  [cfn-auto-reloader-hook]
+                  triggers=post.update
+                  path=Resources.AppServerLaunchTemplate.Metadata
+                  action=/opt/aws/bin/cfn-init -v --stack "${AWS::StackName}" --resource AppServerLaunchTemplate --configsets AWSTools,CloudWatchAgentConfigureSet,AppInstall --region ${AWS::Region}
+                  runas=root
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: true
+                ensureRunning: true
+                files:
+                  - "/etc/cfn/cfn-hup.conf"
+                  - "/etc/cfn/hooks.d/cfn-auto-reloader.conf"
+        nginxInstall:
+          packages:
+            yum:
+              "libunwind" : []
+              "gperftools-libs": []
+              "nginx": []
+          files:
+            /etc/nginx/conf.d/webserver-default.conf:
+              content:
+                !Sub |
+                  server {
+                    listen 8443 default_server;
+                    ssl on;
+                    ssl_certificate /etc/nginx/ssl/server.crt;
+                    ssl_certificate_key /etc/nginx/ssl/server.key;
+                    root /usr/share/nginx/webserver;
+                    index index.html;
+                  }
+              mode: "000644"
+              owner: "root"
+              group: "root"
+            /usr/share/nginx/webserver/index.html:
+              content:
+                !Sub |
+                  <html>
+                  <head>
+                  <title>${AWS::StackName} App Server Demo Site</title>
+                  </head>
+                  <body>
+                  <h1>Home page for App Server deployed from ${AWS::StackName}</h1>
+                  </body>
+                  </html>
+              mode: "000644"
+              owner: "root"
+              group: "root"
+            /usr/share/nginx/webserver/healthcheck.html:
+              content:
+                !Sub |
+                  HealthCheck for ${AWS::StackName}
+              mode: "000644"
+              owner: "root"
+              group: "root"
+          commands:
+            00-makedir:
+              command: "mkdir /etc/nginx/ssl"
+            01-generatecert:
+              command: "openssl genrsa -des3 -passout pass:x -out server.pass.key 2048"
+              cwd: "/etc/nginx/ssl"
+            02-setpassword:
+              command: "openssl rsa -passin pass:x -in server.pass.key -out server.key"
+              cwd: "/etc/nginx/ssl"
+            03-removepassword:
+              command: "rm -f server.pass.key"
+              cwd: "/etc/nginx/ssl"
+            04-certrequest:
+              command: openssl req -new -key server.key -out server.csr -subj "/C=UK/ST=Cloud/L=Cloud/O=QuickStart/OU=ApplicationVPC/CN=appserver.local"
+              cwd: "/etc/nginx/ssl"
+            05-certgeneration:
+              command: openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
+              cwd: "/etc/nginx/ssl"
+            06-restartnginx:
+              command: service nginx restart
+          services:
+            sysvinit:
+              nginx:
+                enabled: true
+                ensureRunning: true
+                files:
+                  - "/etc/nginx/conf.d/webserver-default.conf"
+    Properties:
+      LaunchTemplateData:
+        TagSpecifications: 
+          - 
+            ResourceType: instance
+            Tags:
+              - Key: "Name"
+                Value: !Sub "${AWS::StackName}.vpc-app.i-asg.appserver"
+              - Key: "Patch Group"
+                Value: !Sub ${AWS::StackName}-app
+              - Key: "SystemsManager"
+                Value: "true"
+          - 
+            ResourceType: volume
+            Tags:
+              - Key: "Name"
+                Value: !Sub "${AWS::StackName}.vpc-app.ebs-asg.appserver"
+        UserData: 
+          "Fn::Base64":
+            !Sub |
+              #!/bin/bash -xe
+
+              set +e                      # Ignore errors from cfn-signal and continue processing bash script
+              # System updates
+              yum -y update
+
+              # Sets hostname details
+              echo "127.0.0.1 app-server-asg localhost" >/etc/hosts
+              echo "app-server-asg" >/etc/hostname 
+              echo "NETWORKING=yes" >/etc/sysconfig/network 
+              echo "HOSTNAME=app-server-asg" >>/etc/sysconfig/network
+              echo "NOZEROCONF=yes" >>/etc/sysconfig/network
+              hostname app-server-asg 
+
+              # # Install CloudWatch Logs Agent
+              aws ssm send-command --document-name "AWS-ConfigureAWSPackage" --instance-ids `curl -s http://169.254.169.254/latest/meta-data/instance-id` --parameters action=Install,name=AmazonCloudWatchAgent --region ${AWS::Region}
+
+              # Install Nginx
+              yum -y install libunwind
+              yum -y install gperftools-libs
+              yum -y install nginx
+              amazon-linux-extras install -y nginx1.12
+
+              # Configure Nginx Website
+              echo "server {" >/etc/nginx/conf.d/webserver-default.conf
+              echo "  listen 8443 default_server;" >>/etc/nginx/conf.d/webserver-default.conf
+              echo "  ssl on;" >>/etc/nginx/conf.d/webserver-default.conf
+              echo "  ssl_certificate /etc/nginx/ssl/server.crt;" >>/etc/nginx/conf.d/webserver-default.conf
+              echo "  ssl_certificate_key /etc/nginx/ssl/server.key;" >>/etc/nginx/conf.d/webserver-default.conf
+              echo "  root /usr/share/nginx/webserver;" >>/etc/nginx/conf.d/webserver-default.conf
+              echo "  index index.html;" >>/etc/nginx/conf.d/webserver-default.conf
+              echo "}" >>/etc/nginx/conf.d/webserver-default.conf
+
+              # Configure Nginx web page
+              mkdir -p /usr/share/nginx/webserver/
+              echo "Hello World!" >/usr/share/nginx/webserver/index.html
+
+              # Configure Nginx SSL Cert
+              mkdir -p /etc/nginx/ssl
+              cd /etc/nginx/ssl
+              openssl genrsa -des3 -passout pass:x -out server.pass.key 2048
+              openssl rsa -passin pass:x -in server.pass.key -out server.key
+              rm -f server.pass.key
+              openssl req -new -key server.key -out server.csr -subj "/C=UK/ST=Cloud/L=Cloud/O=QuickStart/OU=ApplicationVPC/CN=appserver.local"
+              openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
+              service nginx restart
+
+              # # Configure CloudWatch Logs Agent
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -c ssm:${CloudWatchLogConfigParameter} -m ec2 -s
+
+              # /opt/aws/bin/cfn-init --stack="${AWS::StackName}" --resource=AppServerLaunchTemplate --configsets=AWSTools,CloudWatchAgentInstallSet,AppInstall --region=${AWS::Region}
+              # /opt/aws/bin/cfn-signal -e $? --stack "${AWS::StackName}" --resource AppServerASG --region ${AWS::Region}   
+
+              set -e                      # Start responding to errors again
+              echo "done."
+        IamInstanceProfile: 
+          Name: !Ref Ec2InstanceProfile
+        SecurityGroupIds: 
+          - !Ref AppServerSecurityGroup
+        EbsOptimized: false
+        KeyName: !Ref AppServerKeyPair
+        ImageId: !FindInMap [AWSRegionMap, !Ref "AWS::Region", AMZNLINUX2HVM]
+        InstanceType: !Ref AppServerInstanceSize
+        Monitoring: 
+          Enabled: true
+
+  # Create the App Server ASG
+  AppServerASG:                    
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    DependsOn:
+      - AppServerNlbTargetGroup
+      - AppServerLaunchTemplate
+    # UpdatePolicy:
+    #   AutoScalingReplacingUpdate:
+    #     WillReplace: true
+    # CreationPolicy:
+    #   AutoScalingCreationPolicy:
+    #     MinSuccessfulInstancesPercent: 50
+    #   ResourceSignal:
+    #     Count: !Ref AppServerInstanceCount
+    #     Timeout: PT10M
+    Properties:
+      DesiredCapacity: !Ref AppServerInstanceCount
+      HealthCheckGracePeriod: 180
+      HealthCheckType: ELB
+      LaunchTemplate:
+        LaunchTemplateId: !Ref AppServerLaunchTemplate
+        Version: !GetAtt AppServerLaunchTemplate.LatestVersionNumber
+      TargetGroupARNs:
+        - !Ref AppServerNlbTargetGroup
+      MaxSize: 3
+      MinSize: 1
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-appserver.asg.app.vpc"
+          PropagateAtLaunch: true
+        - Key: "Patch Group"
+          Value: !Sub ${AWS::StackName}-appserver
+          PropagateAtLaunch: true
+      VPCZoneIdentifier:
+        - !Ref AppVpcSubnetPri1
+        - !Ref AppVpcSubnetPri1
+
+  # Create the App Server ELB as in internal NLB, create a Target Group that forwards on 8443, and a
+  # listener that listens on 8443 and sends to the Target Group.  Note that the AppServer ASG is where
+  # the instances are linked to the Target Group
+  AppServerNlb:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      Scheme: internal
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: true
+      Subnets:
+        - !Ref AppVpcSubnetPri1
+        - !Ref AppVpcSubnetPri2
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-app.nlb.app.vpc"
+      Type: network
+  AppServerNlbTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    DependsOn:
+      - AppServerNlb
+    Properties:
+      Port: 8443
+      Protocol: TCP
+      HealthCheckPort: 8443
+      HealthCheckProtocol: TCP
+      TargetGroupAttributes:
+        - 
+          Key: deregistration_delay.timeout_seconds
+          Value: 10
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-app.tg.nlb.app.vpc"
+      VpcId: !Ref AppVpc
+  AppServerNlbListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    DependsOn:
+      - AppServerNlbTargetGroup
+      - AppServerNlb
+    Properties: 
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref AppServerNlbTargetGroup
+      LoadBalancerArn: !Ref AppServerNlb
+      Port: 8443
+      Protocol: TCP
+
+  # Create an AWS PrivateLink Service Endpoint for the App Server NLB (that can be exposed into the
+  # Gateway VPC for the Inbound ALB to connect to using IP addresses)
+  # NOTE: For production deployments, AcceptanceRequired should be changed to true, and/or a Endpoint
+  # policy configured (manually or via a custom resource) to only allow requests from known AWS accounts
+  AppServerNlbServiceEndpoint:
+    Type: "AWS::EC2::VPCEndpointService"
+    DependsOn: 
+      - AppServerNlb
+    Properties:
+      NetworkLoadBalancerArns: 
+        - !Ref AppServerNlb
+      AcceptanceRequired: false
+
+  # Create a security group for the App Server PrivateLink endpoint that will be placed into the Gateway
+  # VPC.  This will allow:
+  # 1. Traffic from the ALB (proxied traffic and ALB health checks) on port 8443
+  # 2. TEMP Traffic from a peered VPC for testing purposes
+  GatewayVpcAppServerNlbEndpointSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub "${AWS::StackName} Interface Endpoints"
+      VpcId: !Ref GatewayVpc
+      SecurityGroupIngress:
+      - IpProtocol: tcp   
+        FromPort: '8443'
+        ToPort: '8443'
+        SourceSecurityGroupId: !Ref InboundAlbSecurityGroup
+      # - IpProtocol: tcp   
+      #   FromPort: '8443'
+      #   ToPort: '8443'
+      #   CidrIp: !Ref AppVpcCidrBlock
+      - IpProtocol: tcp   
+        FromPort: '8443'
+        ToPort: '8443'
+        CidrIp: 10.1.0.0/16
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-appvpce.sg.gw.vpc"
+
+  # Create the PrivateLink Endpoint in the Gateway VPC that connects to the App Server PrivateLink
+  # service
+  GatewayVpcAppServerNlbEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn:
+      - AppServerNlbServiceEndpoint
+      - GatewayVpcAppServerNlbEndpointSecurityGroup
+      - AppServerNlb
+      - AppServerNlbListener
+    Properties: 
+      VpcId: !Ref GatewayVpc
+      ServiceName: !Sub com.amazonaws.vpce.${AWS::Region}.${AppServerNlbServiceEndpoint}
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: false
+      SubnetIds: 
+        - !Ref GatewayVpcSubnetAws1
+        - !Ref GatewayVpcSubnetAws2
+      SecurityGroupIds: 
+        - !Ref GatewayVpcAppServerNlbEndpointSecurityGroup
+
+  # Create a custom resource that looks up the IP addresses of a PrivateLink endpoint and returns
+  # them in the Ip1 and Ip2 GetAtt return values - this allows these values to be used for ALB 
+  # target group configuration
+  # NOTE: the code used is sample code only, and designed for deployments in 2 AZs only
+  GetVpcEndpointIpsLambda:
+    Type: "AWS::Lambda::Function"
+    DependsOn:
+      - LambdaExecutionRole
+    Properties:
+      Code:
+        ZipFile: !Sub |
+          import cfnresponse
+          import boto3
+          ec2client = boto3.client('ec2',region_name='${AWS::Region}')
+
+          def handler(event, context):
+              # responseValue = int(event['ResourceProperties']['Input']) * 5
+
+              vpceid = event['ResourceProperties']['VPCendpointID']
+
+              response = ec2client.describe_vpc_endpoints(VpcEndpointIds=[vpceid],MaxResults=100)
+              enis = response['VpcEndpoints'][0]['NetworkInterfaceIds']
+    
+              i = 1
+              ip = {}
+              for eni in enis:
+                  response = ec2client.describe_network_interfaces(NetworkInterfaceIds=[eni])
+                  ip[i] = response['NetworkInterfaces'][0]['PrivateIpAddress']
+                  i = i + 1
+
+              responseData = {}
+              responseData['VpceId'] = vpceid
+              responseData['Ip1'] = ip[1]
+              responseData['Ip2'] = ip[2]
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, vpceid)
+      Description: Custom Resource
+      Handler: index.handler
+      MemorySize: 128
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python2.7
+      Timeout: 10
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - ec2:Describe*
+                Resource: '*'
+  GetVpcEndpointIpsAppServerNLB:
+    Type: Custom::GetVpcEndpointIps
+    DependsOn:
+      - GatewayVpcAppServerNlbEndpoint
+      - GetVpcEndpointIpsLambda
+    Properties:
+      ServiceToken: !GetAtt GetVpcEndpointIpsLambda.Arn
+      Region: !Ref "AWS::Region"
+      VPCendpointID: !Ref GatewayVpcAppServerNlbEndpoint
+
+
+  VpcEndpointIpsAppServerNLBDns:
+    Type: AWS::Route53::RecordSet
+    DependsOn:
+      - GetVpcEndpointIpsAppServerNLB
+    Properties: 
+      HostedZoneId: !Ref PrivateHostedZone
+      Name: app.endpoint.private.
+      ResourceRecords:
+        - !GetAtt GetVpcEndpointIpsAppServerNLB.Ip1
+        - !GetAtt GetVpcEndpointIpsAppServerNLB.Ip2
+      TTL: 60
+      Type: A
+
+
+
+  InboundAlbSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub "${AWS::StackName} Inbound Alb"
+      VpcId: !Ref GatewayVpc
+      SecurityGroupIngress:
+      - IpProtocol: tcp   
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: '0.0.0.0/0'
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-inboundnlb.sg.gw.vpc"
+  InboundAlb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      LoadBalancerAttributes:
+        - 
+          Key: access_logs.s3.enabled
+          Value: true 
+        -
+          Key: access_logs.s3.bucket
+          Value: !Ref LoggingBucket
+        -
+          Key: access_logs.s3.prefix
+          Value: "Logs/inbound"
+      Scheme: internal
+      SecurityGroups:
+        - !Ref InboundAlbSecurityGroup
+      Subnets:
+        - !Ref GatewayVpcSubnetDx1
+        - !Ref GatewayVpcSubnetDx2
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-inbound.alb.gw.vpc"
+      Type: application
+  InboundAlbTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    DependsOn: 
+      - GetVpcEndpointIpsAppServerNLB
+      - InboundAlb
+    Properties:
+      Port: 8443
+      Protocol: HTTPS
+      HealthCheckPort: 8443
+      HealthCheckProtocol: HTTPS
+      TargetGroupAttributes:
+        - 
+          Key: deregistration_delay.timeout_seconds
+          Value: 10
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-inbound.tg.alb.gw.vpc"
+      Targets:
+        - 
+          Id: !GetAtt GetVpcEndpointIpsAppServerNLB.Ip1 # 10.0.0.83
+          Port: 8443
+        - 
+          Id: !GetAtt GetVpcEndpointIpsAppServerNLB.Ip2 # 10.0.0.125
+          Port: 8443
+      TargetType: ip
+      VpcId: !Ref GatewayVpc
+  InboundAlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn:
+      - InboundAlbTargetGroup
+      - InboundAlb
+    Properties: 
+      DefaultActions:
+        - 
+          TargetGroupArn: !Ref InboundAlbTargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref InboundAlb
+      Port: 80
+      Protocol: HTTP
+
+
+
+  # -----------------------------------------------
+  # Outbound Proxy Server / NLB / PrivateLink Service Configuration
+  # -----------------------------------------------
+
+  OutboundProxyServerSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub "${AWS::StackName} Outbound Proxy Servers"
+      VpcId: !Ref GatewayVpc
+      SecurityGroupIngress:
+      - IpProtocol: tcp   
+        FromPort: '3128'
+        ToPort: '3128'
+        CidrIp:
+          Fn::Select:
+            - 2
+            - Fn::Cidr:
+              - !Ref GatewayVpcCidrBlock
+              - 4
+              - 5
+      - IpProtocol: tcp   
+        FromPort: '3128'
+        ToPort: '3128'
+        CidrIp:
+          Fn::Select:
+            - 3
+            - Fn::Cidr:
+              - !Ref GatewayVpcCidrBlock
+              - 4
+              - 5
+      - IpProtocol: tcp   
+        FromPort: '3128'
+        ToPort: '3128'
+        CidrIp:
+          Fn::Select:
+            - 0
+            - Fn::Cidr:
+              - !Ref AppVpcCidrBlock
+              - 2
+              - 6
+      - IpProtocol: tcp   
+        FromPort: '3128'
+        ToPort: '3128'
+        CidrIp:
+          Fn::Select:
+            - 1
+            - Fn::Cidr:
+              - !Ref AppVpcCidrBlock
+              - 2
+              - 6
+      - IpProtocol: tcp   
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: '10.1.0.0/16'
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-outboundproxyserver.sg.gw.vpc"
+
+  # Outbound proxy server
+  OutboundProxyServerLaunchTemplate:
+    Type: "AWS::EC2::LaunchTemplate"
+    DependsOn:
+      - OutboundProxyServerSecurityGroup
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          AWSTools:
+            - "setHostName"
+            - "cfnInstall"
+          CloudWatchAgentInstallSet:
+            - "cloudWatchAgentInstall"
+            - 
+              ConfigSet: "CloudWatchAgentConfigureSet"
+          CloudWatchAgentConfigureSet:
+            - "cloudWatchAgentConfigure"
+          AppInstall:
+            - "nginxInstall"
+        cloudWatchAgentInstall:
+          commands:
+            01-download-agent:
+              test: "! rpm -q amazon-cloudwatch-agent"
+              command: "wget https://s3.amazonaws.com/amazoncloudwatch-agent/linux/amd64/latest/AmazonCloudWatchAgent.zip"
+            02-unzip-agent:
+              test: "! rpm -q amazon-cloudwatch-agent"
+              command: "unzip -o AmazonCloudWatchAgent.zip"
+            03-install-agent:
+              test: "! rpm -q amazon-cloudwatch-agent"
+              command: "./install.sh >/dev/null"
+        cloudWatchAgentConfigure:
+          commands:
+            01-configure-agent:
+              command: 
+                !Sub |
+                  /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -c ssm:${CloudWatchLogConfigParameter} -m ec2 -s
+              test: "rpm -q amazon-cloudwatch-agent"
+        setHostName:
+          files:
+            /etc/hosts:
+              content:
+                !Sub |
+                  127.0.0.1  app-server-asg  localhost
+            /etc/hostname:
+              content:
+                !Sub |
+                  app-server-asg
+            /etc/sysconfig/network:
+              content:
+                !Sub |
+                  NETWORKING=yes
+                  HOSTNAME=app-server-asg
+                  NOZEROCONF=yes
+          commands:
+            01-sethostname:
+              command: "hostname app-server-asg"
+        cfnInstall:
+          files:
+            /etc/cfn/cfn-hup.conf:
+              content:
+                !Sub |
+                  [main]
+                  stack=${AWS::StackId}
+                  region=${AWS::Region}
+                  interval=2
+              mode: "000644"
+              owner: "root"
+              group: "root"
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content:
+                !Sub |
+                  [cfn-auto-reloader-hook]
+                  triggers=post.update
+                  path=Resources.AppServerLaunchTemplate.Metadata
+                  action=/opt/aws/bin/cfn-init -v --stack "${AWS::StackName}" --resource AppServerLaunchTemplate --configsets AWSTools,CloudWatchAgentConfigureSet,AppInstall --region ${AWS::Region}
+                  runas=root
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: true
+                ensureRunning: true
+                files:
+                  - "/etc/cfn/cfn-hup.conf"
+                  - "/etc/cfn/hooks.d/cfn-auto-reloader.conf"
+        nginxInstall:
+          packages:
+            yum:
+              "libunwind" : []
+              "gperftools-libs": []
+              "nginx": []
+          files:
+            /etc/nginx/conf.d/webserver-default.conf:
+              content:
+                !Sub |
+                  server {
+                    listen 8443 default_server;
+                    ssl on;
+                    ssl_certificate /etc/nginx/ssl/server.crt;
+                    ssl_certificate_key /etc/nginx/ssl/server.key;
+                    root /usr/share/nginx/webserver;
+                    index index.html;
+                  }
+              mode: "000644"
+              owner: "root"
+              group: "root"
+            /usr/share/nginx/webserver/index.html:
+              content:
+                !Sub |
+                  <html>
+                  <head>
+                  <title>${AWS::StackName} App Server Demo Site</title>
+                  </head>
+                  <body>
+                  <h1>Home page for App Server deployed from ${AWS::StackName}</h1>
+                  </body>
+                  </html>
+              mode: "000644"
+              owner: "root"
+              group: "root"
+            /usr/share/nginx/webserver/healthcheck.html:
+              content:
+                !Sub |
+                  HealthCheck for ${AWS::StackName}
+              mode: "000644"
+              owner: "root"
+              group: "root"
+          commands:
+            00-makedir:
+              command: "mkdir /etc/nginx/ssl"
+            01-generatecert:
+              command: "openssl genrsa -des3 -passout pass:x -out server.pass.key 2048"
+              cwd: "/etc/nginx/ssl"
+            02-setpassword:
+              command: "openssl rsa -passin pass:x -in server.pass.key -out server.key"
+              cwd: "/etc/nginx/ssl"
+            03-removepassword:
+              command: "rm -f server.pass.key"
+              cwd: "/etc/nginx/ssl"
+            04-certrequest:
+              command: openssl req -new -key server.key -out server.csr -subj "/C=UK/ST=Cloud/L=Cloud/O=QuickStart/OU=ApplicationVPC/CN=appserver.local"
+              cwd: "/etc/nginx/ssl"
+            05-certgeneration:
+              command: openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
+              cwd: "/etc/nginx/ssl"
+            06-restartnginx:
+              command: service nginx restart
+          services:
+            sysvinit:
+              nginx:
+                enabled: true
+                ensureRunning: true
+                files:
+                  - "/etc/nginx/conf.d/webserver-default.conf"
+    Properties:
+      LaunchTemplateData:
+        TagSpecifications: 
+          - 
+            ResourceType: instance
+            Tags:
+              - Key: "Name"
+                Value: !Sub "${AWS::StackName}-outboundproxyserver.i.asg.gw.vpc"
+              - Key: "Patch Group"
+                Value: !Sub ${AWS::StackName}-gw
+              - Key: "SystemsManager"
+                Value: "true"
+          - 
+            ResourceType: volume
+            Tags:
+              - Key: "Name"
+                Value: !Sub "${AWS::StackName}-outboundproxyserver.ebs.asg.gw.vpc"
+        UserData: 
+          "Fn::Base64":
+            !Sub |
+              #!/bin/bash -xe
+
+              set +e                      # Ignore errors from cfn-signal and continue processing bash script
+              # System updates
+              yum -y update
+
+              # Sets hostname details
+              echo "127.0.0.1 outbound-server-asg localhost" >/etc/hosts
+              echo "outbound-server-asg" >/etc/hostname 
+              echo "NETWORKING=yes" >/etc/sysconfig/network 
+              echo "HOSTNAME=outbound-server-asg" >>/etc/sysconfig/network
+              echo "NOZEROCONF=yes" >>/etc/sysconfig/network
+              hostname outbound-server-asg 
+
+              # # Install CloudWatch Logs Agent
+              aws ssm send-command --document-name "AWS-ConfigureAWSPackage" --instance-ids `curl -s http://169.254.169.254/latest/meta-data/instance-id` --parameters action=Install,name=AmazonCloudWatchAgent --region ${AWS::Region}
+
+              # # Install Squid
+              yum -y install squid
+
+              # Configure Squid
+              # squid.conf
+              echo 'acl manager proto cache_object' >/etc/squid/squid.conf
+              echo 'acl localhost src 127.0.0.1/32 ::1' >>/etc/squid/squid.conf
+              echo 'acl to_localhost dst 127.0.0.0/8 0.0.0.0/32 ::1' >>/etc/squid/squid.conf
+              echo 'acl localnet src 10.0.0.0/8' >>/etc/squid/squid.conf
+              echo 'acl localnet src 172.16.0.0/12' >>/etc/squid/squid.conf
+              echo 'acl localnet src 192.168.0.0/16' >>/etc/squid/squid.conf
+              echo 'acl localnet src ${AppVpcCidrBlock}' >>/etc/squid/squid.conf
+              echo 'acl localnet src ${GatewayVpcCidrBlock}' >>/etc/squid/squid.conf
+              echo 'acl SSL_ports port 443' >>/etc/squid/squid.conf
+              echo 'acl Safe_ports port 80' >>/etc/squid/squid.conf
+              echo 'acl Safe_ports port 443' >>/etc/squid/squid.conf
+              echo 'acl CONNECT method CONNECT' >>/etc/squid/squid.conf
+              echo 'acl whitelist dstdomain "/etc/squid/whitelist.txt"' >>/etc/squid/squid.conf
+              echo 'http_access allow manager localhost' >>/etc/squid/squid.conf
+              echo 'http_access deny manager' >>/etc/squid/squid.conf
+              echo 'http_access deny !Safe_ports' >>/etc/squid/squid.conf
+              echo 'http_access deny CONNECT !SSL_ports' >>/etc/squid/squid.conf
+              echo 'http_access allow whitelist' >>/etc/squid/squid.conf
+              echo 'http_access deny all' >>/etc/squid/squid.conf
+              echo 'http_port 3128' >>/etc/squid/squid.conf
+              echo 'coredump_dir /var/spool/squid' >>/etc/squid/squid.conf
+              echo 'refresh_pattern .               0       0%     0' >>/etc/squid/squid.conf
+              echo 'logformat awssquid %tg %6tr %>a %Ss/%03>Hs %<st %rm %ru %un %Sh/%<A %mt dxproxyout' >>/etc/squid/squid.conf
+              echo 'access_log /var/log/squid/squid-proxy.log awssquid' >>/etc/squid/squid.conf
+
+              # configure whitelist.txt
+              echo 'allowedwebsite.co.uk' >/etc/squid/whitelist.txt
+              echo '.gov.uk' >>/etc/squid/whitelist.txt
+              echo 'mhj-aws-testing-lhr.s3-website.eu-west-2.amazonaws.com' >>/etc/squid/whitelist.txt
+
+              # restart the squid service
+              service squid restart
+
+              # # Configure CloudWatch Logs Agent
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -c ssm:${CloudWatchLogConfigParameter} -m ec2 -s
+
+              # /opt/aws/bin/cfn-init --stack="${AWS::StackName}" --resource=AppServerLaunchTemplate --configsets=AWSTools,CloudWatchAgentInstallSet,AppInstall --region=${AWS::Region}
+              # /opt/aws/bin/cfn-signal -e $? --stack "${AWS::StackName}" --resource AppServerASG --region ${AWS::Region}   
+
+              set -e                      # Start responding to errors again
+              echo "done."
+        IamInstanceProfile: 
+          Name: !Ref Ec2InstanceProfile
+        SecurityGroupIds: 
+          - !Ref OutboundProxyServerSecurityGroup
+        EbsOptimized: false
+        KeyName: !Ref OutboundProxyServerKeyPair
+        ImageId: !FindInMap [AWSRegionMap, !Ref "AWS::Region", AMZNLINUX2HVM]
+        InstanceType: !Ref OutboundProxyServerInstanceSize
+        Monitoring: 
+          Enabled: true
+
+  # Create the App Server ASG
+  OutboundProxyServerASG:                    
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    DependsOn:
+      - OutboundProxyServerLaunchTemplate
+      - OutboundProxyServerNlbTargetGroup
+    # UpdatePolicy:
+    #   AutoScalingReplacingUpdate:
+    #     WillReplace: true
+    # CreationPolicy:
+    #   AutoScalingCreationPolicy:
+    #     MinSuccessfulInstancesPercent: 50
+    #   ResourceSignal:
+    #     Count: !Ref AppServerInstanceCount
+    #     Timeout: PT10M
+    Properties:
+      DesiredCapacity: !Ref OutboundProxyServerInstanceCount
+      HealthCheckGracePeriod: 180
+      HealthCheckType: ELB
+      LaunchTemplate:
+        LaunchTemplateId: !Ref OutboundProxyServerLaunchTemplate
+        Version: !GetAtt OutboundProxyServerLaunchTemplate.LatestVersionNumber
+      TargetGroupARNs:
+        - !Ref OutboundProxyServerNlbTargetGroup
+      MaxSize: 3
+      MinSize: 1
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-outboundproxyserver.asg.app.vpc"
+          PropagateAtLaunch: true
+        - Key: "Patch Group"
+          Value: !Sub ${AWS::StackName}-outboundproxyserver
+          PropagateAtLaunch: true
+      VPCZoneIdentifier:
+        - !Ref GatewayVpcSubnetDx1
+        - !Ref GatewayVpcSubnetDx2
+
+  # NLB
+  OutboundProxyServerNlb:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      Scheme: internal
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: true
+      Subnets:
+        - !Ref GatewayVpcSubnetAws1
+        - !Ref GatewayVpcSubnetAws2
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-outboundproxy.nlb.gw.vpc"
+      Type: network
+  OutboundProxyServerNlbTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    DependsOn:
+      - OutboundProxyServerNlb
+    Properties:
+      Port: 3128
+      Protocol: TCP
+      HealthCheckPort: 3128
+      HealthCheckProtocol: TCP
+      TargetGroupAttributes:
+        - 
+          Key: deregistration_delay.timeout_seconds
+          Value: 10
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-outboundproxy.tg.nlb.gw.vpc"
+      VpcId: !Ref GatewayVpc
+  OutboundProxyServerNlbListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    DependsOn:
+      - OutboundProxyServerNlb
+      - OutboundProxyServerNlbTargetGroup
+    Properties: 
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref OutboundProxyServerNlbTargetGroup
+      LoadBalancerArn: !Ref OutboundProxyServerNlb
+      Port: 3128
+      Protocol: TCP
+
+  # Create an AWS PrivateLink Service Endpoint
+  OutboundProxyServerNlbServiceEndpoint:
+    Type: "AWS::EC2::VPCEndpointService"
+    DependsOn:
+      - OutboundProxyServerNlb
+    Properties:
+      NetworkLoadBalancerArns: 
+        - !Ref OutboundProxyServerNlb
+      AcceptanceRequired: false
+
+  # 
+  AppVpcOutboundProxyServerNlbEndpointSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub "${AWS::StackName} Interface Endpoints"
+      VpcId: !Ref AppVpc
+      SecurityGroupIngress:
+      - IpProtocol: tcp   
+        FromPort: '3128'
+        ToPort: '3128'
+        SourceSecurityGroupId: !Ref AppServerSecurityGroup
+      - IpProtocol: tcp   
+        FromPort: '3128'
+        ToPort: '3128'
+        SourceSecurityGroupId: !Ref SimulateOutboundConnectionSecurityGroup
+      # - IpProtocol: tcp   
+      #   FromPort: '8443'
+      #   ToPort: '8443'
+      #   CidrIp: !Ref AppVpcCidrBlock
+      - IpProtocol: tcp   
+        FromPort: '3128'
+        ToPort: '3128'
+        CidrIp: 10.1.0.0/16
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-outboudnproxyvpce.sg.app.vpc"
+
+  # Create the PrivateLink Endpoint in the Gateway VPC that connects to the App Server PrivateLink
+  # service
+  AppVpcOutboundProxyServerNlbEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    DependsOn:
+      - OutboundProxyServerNlbServiceEndpoint
+      - OutboundProxyServerNlbListener
+      - AppVpcOutboundProxyServerNlbEndpointSecurityGroup
+    Properties: 
+      VpcId: !Ref AppVpc
+      ServiceName: !Sub com.amazonaws.vpce.${AWS::Region}.${OutboundProxyServerNlbServiceEndpoint}
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: false
+      SubnetIds: 
+        - !Ref AppVpcSubnetPri1
+        - !Ref AppVpcSubnetPri2
+      SecurityGroupIds: 
+        - !Ref AppVpcOutboundProxyServerNlbEndpointSecurityGroup
+
+  GetVpcEndpointIpsOutboundProxyServerNLB:
+    Type: Custom::GetVpcEndpointIps
+    DependsOn:
+      - AppVpcOutboundProxyServerNlbEndpoint
+      - GetVpcEndpointIpsLambda
+    Properties:
+      ServiceToken: !GetAtt GetVpcEndpointIpsLambda.Arn
+      Region: !Ref "AWS::Region"
+      VPCendpointID: !Ref AppVpcOutboundProxyServerNlbEndpoint
+
+  VpcEndpointIpsOutboundProxyServerNLBDns:
+    Type: AWS::Route53::RecordSet
+    DependsOn:
+      - GetVpcEndpointIpsOutboundProxyServerNLB
+    Properties: 
+      HostedZoneId: !Ref PrivateHostedZone
+      Name: outbound.endpoint.private.
+      ResourceRecords:
+        - !GetAtt GetVpcEndpointIpsOutboundProxyServerNLB.Ip1
+        - !GetAtt GetVpcEndpointIpsOutboundProxyServerNLB.Ip2
+      TTL: 60
+      Type: A
+
+
+  SimulateInboundConnectionSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub "${AWS::StackName} Simulate Inbound Connection"
+      VpcId: !Ref GatewayVpc
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-simulate.sg.gw.vpc"
+
+
+  SimulateInboundConnection:
+    Type: "AWS::Lambda::Function"
+    DependsOn:
+      - SimulateLambdaExecutionRole
+      - InboundAlb
+    Properties:
+      Code:
+        ZipFile: !Sub |
+          import urllib2
+
+          def handler(event, context):
+              # responseValue = int(event['ResourceProperties']['Input']) * 5
+
+              content = urllib2.urlopen('http://${InboundAlb.DNSName}')
+              return content.read()
+
+      Description: Test Inbound Proxy
+      Handler: index.handler
+      MemorySize: 128
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SimulateInboundConnectionSecurityGroup
+        SubnetIds:
+          - !Ref GatewayVpcSubnetDx1
+          - !Ref GatewayVpcSubnetDx2
+      Role: !GetAtt SimulateLambdaExecutionRole.Arn
+      Runtime: python2.7
+      Timeout: 10
+  SimulateLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - ec2:Describe*
+                  - ec2:CreateNetworkInterface
+                  - ec2:DeleteNetworkInterface
+                Resource: '*'
+
+
+
+
+
+
+
+  SimulateOutboundConnectionSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub "${AWS::StackName} Simulate Outbound"
+      VpcId: !Ref AppVpc
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}-simulateoutbound.sg.app.vpc"
+
+
+  SimulateOutboundConnection:
+    Type: "AWS::Lambda::Function"
+    DependsOn:
+      - SimulateLambdaExecutionRole
+      - VpcEndpointIpsOutboundProxyServerNLBDns
+    Properties:
+      Code:
+        ZipFile: !Sub |
+          import urllib2
+
+          def handler(event, context):
+              # responseValue = int(event['ResourceProperties']['Input']) * 5
+
+              proxy = urllib2.ProxyHandler({'http': 'http://outbound.endpoint.private:3128'})
+              opener = urllib2.build_opener(proxy)
+              urllib2.install_opener(opener)
+              content = urllib2.urlopen('http://mhj-aws-testing-lhr.s3-website.eu-west-2.amazonaws.com')
+
+              return content.read()
+
+      Description: Test Outbound Proxy
+      Handler: index.handler
+      MemorySize: 128
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SimulateOutboundConnectionSecurityGroup
+        SubnetIds:
+          - !Ref AppVpcSubnetPri1
+          - !Ref AppVpcSubnetPri1
+      Role: !GetAtt SimulateLambdaExecutionRole.Arn
+      Runtime: python2.7
+      Timeout: 10
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  TestServerSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub "${AWS::StackName} Test Server"
+      VpcId: !Ref AppVpc
+      SecurityGroupIngress:
+      - IpProtocol: tcp   
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: '0.0.0.0/0'
+        # SourceSecurityGroupId:
+        #   "Fn::ImportValue": !Sub ${MgmtStackName}BastionSecurityGroup
+      Tags:
+        - Key: "Name"
+          Value: !Sub "${AWS::StackName}.vpc-gw.sg.i-testserver"
+  TestServerLaunchTemplate:
+    Type: "AWS::EC2::LaunchTemplate"
+    Properties:
+      LaunchTemplateData:
+        TagSpecifications: 
+          - 
+            ResourceType: instance
+            Tags:
+              - Key: "Name"
+                Value: !Sub "${AWS::StackName}.vpc-gw.i.testserver"
+              - Key: "Patch Group"
+                Value: !Sub ${AWS::StackName}-gw
+              - Key: "SystemsManager"
+                Value: "true"
+          - 
+            ResourceType: volume
+            Tags:
+              - Key: "Name"
+                Value: !Sub "${AWS::StackName}.vpc-gw.ebs.testserver"
+        UserData: 
+          "Fn::Base64":
+            !Sub |
+              #!/bin/bash -xe
+
+              set +e                      # Ignore errors from cfn-signal and continue processing bash script
+              # System updates
+              yum -y update
+
+              # Sets hostname details
+              echo "127.0.0.1 test-server localhost" >/etc/hosts
+              echo "test-server" >/etc/hostname 
+              echo "NETWORKING=yes" >/etc/sysconfig/network 
+              echo "HOSTNAME=test-server" >>/etc/sysconfig/network
+              echo "NOZEROCONF=yes" >>/etc/sysconfig/network
+              hostname test-server 
+
+              # # Install CloudWatch Logs Agent
+              aws ssm send-command --document-name "AWS-ConfigureAWSPackage" --instance-ids `curl -s http://169.254.169.254/latest/meta-data/instance-id` --parameters action=Install,name=AmazonCloudWatchAgent --region ${AWS::Region}
+
+              # Sleep
+              sleep 10
+
+              # # Configure CloudWatch Logs Agent
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -c ssm:${CloudWatchLogConfigParameter} -m ec2 -s
+
+              # /opt/aws/bin/cfn-init --stack="${AWS::StackName}" --resource=AppServerLaunchTemplate --configsets=AWSTools,CloudWatchAgentInstallSet,AppInstall --region=${AWS::Region}
+              # /opt/aws/bin/cfn-signal -e $? --stack "${AWS::StackName}" --resource AppServerASG --region ${AWS::Region}   
+
+              set -e                      # Start responding to errors again
+              echo "done."
+        IamInstanceProfile: 
+          Name: !Ref Ec2InstanceProfile
+        SecurityGroupIds: 
+          - !Ref TestServerSecurityGroup
+        EbsOptimized: false
+        KeyName: !Ref AppServerKeyPair
+        ImageId: !FindInMap [AWSRegionMap, !Ref "AWS::Region", AMZNLINUX2HVM]
+        InstanceType: !Ref AppServerInstanceSize
+        Monitoring: 
+          Enabled: true
+
+
+  # Policy to allow CloudWatch Logs and Metrics from EC2 instances, and to retrieve config
+  # data from the Paramter Store service
+  CloudWatchLogsPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    DependsOn: 
+      - CloudWatchLogConfigParameter
+    Properties: 
+      Description: Allow CloudWatch Logs
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Action:
+              - "logs:CreateLogStream"
+              - "cloudwatch:PutMetricData"
+              - "ec2:DescribeTags"
+              - "logs:DescribeLogStreams"
+              - "logs:CreateLogGroup"
+              - "logs:PutLogEvents"
+            Resource: "*"
+          -
+            Effect: "Allow"
+            Action:
+              - "ssm:GetParameter"
+            Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${CloudWatchLogConfigParameter}"
+          -
+            Effect: "Allow"
+            Action:
+              - "ssm:SendCommand"
+            Resource: 
+              - !Sub "arn:aws:ssm:*:*:document/AWS-ConfigureAWSPackage"
+              - !Sub "arn:aws:ec2:*:*:instance/*"
+           
+  # Generic EC2 role that allows instances to store CloudWatch Logs data, and be configured
+  # by the AWS Systems Manager service
+  Ec2InstanceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+        - !Ref CloudWatchLogsPolicy
+  Ec2InstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: "/"
+      Roles:
+        - !Ref Ec2InstanceRole
+
+  # -----------------------------------------------
+  # CloudWatch Log Groups configuration
+  # -----------------------------------------------
+  # This creates the CloudWatch Log Groups that will be used to store outputs from instances.
+  # Whilst the CloudWatch Logs agent creates these automatically for new logs, a downstream
+  # dependency on some CloudWatch Metric Filters means that we look to create specific Log Groups
+  # initially, to ensure they exist before the Metric Filters are applied.
+  SquidProxyLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties: 
+      RetentionInDays: 365
+  NginxAccessLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties: 
+      RetentionInDays: 365
+  GatewayVpcFlowLogLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties: 
+      RetentionInDays: 365
+  AppVpcFlowLogLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties: 
+      RetentionInDays: 365
+  VarLogMessagesLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties: 
+      RetentionInDays: 365
+  VarLogSecureLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties: 
+      RetentionInDays: 365
+  CloudWatchLogsAgentLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties: 
+      RetentionInDays: 365
+  Route53PrivateDNSLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties: 
+      RetentionInDays: 365
+
+  # Stores the configuration for the EC2 instances in Parameter Store, so that EC2 instances can
+  # self-configure themselves on first boot
+  CloudWatchLogConfigParameter:
+    Type: "AWS::SSM::Parameter"
+    DependsOn:
+      - CloudWatchLogsAgentLogGroup
+      - VarLogMessagesLogGroup
+    Properties:
+      Type: "String"
+      Description: "CloudWatch Logs Config Parameter"
+      Value:
+        !Sub |
+          {
+            "agent": {
+              "metrics_collection_interval": 60,
+              "region": "${AWS::Region}",
+              "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+              "debug": false
+            },
+            "logs": {
+              "logs_collected": {
+                "files": {
+                  "collect_list": [
+                    {
+                      "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+                      "log_group_name": "${CloudWatchLogsAgentLogGroup}",
+                      "log_stream_name": "{instance_id}-{hostname}",
+                      "timezone": "UTC"
+                    },
+                    {
+                      "file_path": "/var/log/messages",
+                      "log_group_name": "${VarLogMessagesLogGroup}",
+                      "log_stream_name": "{instance_id}-{hostname}",
+                      "timezone": "Local",
+                      "timestamp_format": "%b %d %H:%M:%S"
+                    },
+                    {
+                      "file_path": "/var/log/secure",
+                      "log_group_name": "${VarLogSecureLogGroup}",
+                      "log_stream_name": "{instance_id}-{hostname}",
+                      "timezone": "Local",
+                      "timestamp_format": "%b %d %H:%M:%S"
+                    },
+                    {
+                      "file_path": "/var/log/squid/squid-proxy.log*",
+                      "log_group_name": "${SquidProxyLogGroup}",
+                      "log_stream_name": "{instance_id}-{hostname}",
+                      "timestamp_format": "%d/%b/%Y:%H:%M:%S"
+                    }
+                  ]
+                }
+              },
+              "log_stream_name": "${AWS::StackName}_Other_Logs"
+            },
+            "metrics": {
+              "namespace": "${AWS::StackName}Metrics",
+              "append_dimensions": {
+                "InstanceId": "${!aws:InstanceId}"
+              },
+              "metrics_collected": {
+                "disk": {
+                  "measurement": [
+                    "used_percent"
+                  ],
+                  "metrics_collection_interval": 60,
+                  "resources": [
+                    "/"
+                  ]
+                },
+                "mem": {
+                  "measurement": [
+                    "mem_used_percent"
+                  ],
+                  "metrics_collection_interval": 60
+                },
+                "swap": {
+                  "measurement": [
+                    "swap_used_percent"
+                  ],
+                  "metrics_collection_interval": 60
+                }
+              }
+            }
+          }
+
+  # Configure CloudWatch Agent using AWS Systems Manager Association
+  CloudWatchAgentAssociation:
+    Type: AWS::SSM::Association
+    Properties:
+      Name: "AmazonCloudWatch-ManageAgent"
+      Parameters:
+        action: ["configure"]
+        mode: ["ec2"]
+        optionalConfigurationSource: ["ssm"]
+        optionalConfigurationLocation:
+          - !Sub ${CloudWatchLogConfigParameter}
+        optionalRestart: ["yes"]
+      Targets:
+      - Key: "tag:SystemsManager"
+        Values: ["true"]
+
+  # Configure VPC Flow Logs role
+  VpcFlowLogsRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "vpc-flow-logs.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - !Ref CloudWatchLogsPolicy
+
+  # Create VPC Flow Logs for Gateway and App VPCs
+  AppVpcFlowLogs:
+    Type: "AWS::EC2::FlowLog"
+    DependsOn:
+      - AppVpcFlowLogLogGroup
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt VpcFlowLogsRole.Arn
+      LogGroupName : !Ref AppVpcFlowLogLogGroup
+      ResourceId : !Ref AppVpc
+      ResourceType : VPC
+      TrafficType : ALL
+  GatewayVpcFlowLogs:
+    Type: "AWS::EC2::FlowLog"
+    DependsOn:
+      - GatewayVpcFlowLogLogGroup
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt VpcFlowLogsRole.Arn
+      LogGroupName : !Ref GatewayVpcFlowLogLogGroup
+      ResourceId : !Ref GatewayVpc
+      ResourceType : VPC
+      TrafficType : ALL
+
+# Outputs
+Outputs:
+  StackName:
+    Description: "Name of the Core stack"
+    Value: !Ref AWS::StackName
+  AppServerPrivateLinkIp1:
+    Description: Ip1 for App Server NLB endpoints
+    Value: !GetAtt GetVpcEndpointIpsAppServerNLB.Ip1
+  AppServerPrivateLinkIp2:
+    Description: Ip2 for App Server NLB endpoints
+    Value: !GetAtt GetVpcEndpointIpsAppServerNLB.Ip2
+
+  OutboundProxyServerPrivateLinkIp1:
+    Description: Ip1 for Outbound Proxy Server NLB endpoints
+    Value: !GetAtt GetVpcEndpointIpsOutboundProxyServerNLB.Ip1
+  OutboundProxyServerPrivateLinkIp2:
+    Description: Ip2 for Outbound Proxy Server NLB endpoints
+    Value: !GetAtt GetVpcEndpointIpsOutboundProxyServerNLB.Ip2
