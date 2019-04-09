@@ -1,0 +1,303 @@
+AWSTemplateFormatVersion: 2010-09-09
+  
+Parameters:
+  DomainName:
+    Description: User defined Elasticsearch Domain name
+    Type: String
+    Default: gluekinesisesdemo
+  ElasticsearchVersion:
+    Description: User defined Elasticsearch Version
+    Type: String
+    Default: 6.4
+  InstanceType:
+    Type: String
+    Default: m4.2xlarge.elasticsearch
+  CidrBlock:
+    Type: String
+    Default: 10.0.0.0/16
+  GroupDescription:
+    Type: String
+    Default: GlueKinesisEsDemo
+  SGName:
+    Type: String
+    Default: GlueKinesisEsDemo
+
+Resources:
+  inputBucket:
+    Type: AWS::S3::Bucket
+
+  outputBucket:
+    Type: AWS::S3::Bucket
+
+  vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+  subnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: eu-west-2a
+  subnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: eu-west-2b
+  subnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: eu-west-2c
+  mySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Ref GroupDescription
+      VpcId: !Ref vpc
+      GroupName: !Ref SGName
+      SecurityGroupIngress:
+        - FromPort: '443'
+          IpProtocol: tcp
+          ToPort: '443'
+          CidrIp: 0.0.0.0/0
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: "KibanaUsers"
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          DeveloperOnlyAttribute: false
+          Mutable: true
+          Required: true
+
+  IdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName: "KibanaIDPool"
+      AllowUnauthenticatedIdentities: true
+      # CognitoIdentityProviders:
+      #   - ClientId: !Ref UserPoolClient
+      #     ProviderName: !Sub "cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}"
+
+  AuthenticatedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "es:ESHttp*"
+            Resource:
+              - "*"
+              
+  AuthenticatedRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRoleWithWebIdentity"
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref IdentityPool
+              ForAnyValue:StringLike:
+                "cognito-identity.amazonaws.com:amr": authenticated
+      ManagedPolicyArns: 
+        - !Ref AuthenticatedPolicy
+        
+  RoleAttachment:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId: !Ref IdentityPool
+      Roles:
+        authenticated: !GetAtt AuthenticatedRole.Arn
+
+  ElasticsearchDomain:
+    Type: AWS::Elasticsearch::Domain
+    Properties:
+      ElasticsearchVersion: !Ref ElasticsearchVersion
+      ElasticsearchClusterConfig:
+        InstanceCount: '3'
+        InstanceType: !Ref InstanceType
+      EBSOptions:
+        Iops: 1000
+        EBSEnabled: 'true'
+        VolumeSize: 100
+        VolumeType: io1
+      AccessPolicies:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+          Action: es:*
+          #Resource: !Sub ${ElasticsearchDomain.DomainArn}/*
+          Resource: '*'
+      Tags:
+        - Key: foo
+          Value: bar
+
+  kinesisRole: 
+    Type: "AWS::IAM::Role"
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Principal: 
+              Service: 
+                - "firehose.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies: 
+        - 
+          PolicyName: "root"
+          PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - Effect: Allow
+                Action:
+                - s3:AbortMultipartUpload
+                - s3:GetBucketLocation
+                - s3:GetObject
+                - s3:ListBucket
+                - s3:ListBucketMultipartUploads
+                - s3:PutObject
+                Resource:
+                - !Sub arn:aws:s3:::${outputBucket}
+                - !Sub arn:aws:s3:::${outputBucket}/*
+              - Effect: Allow
+                Action:
+                - es:DescribeElasticsearchDomain
+                - es:DescribeElasticsearchDomains
+                - es:DescribeElasticsearchDomainConfig
+                - es:ESHttpPost
+                - es:ESHttpPut
+                Resource:
+                - !Sub ${ElasticsearchDomain.DomainArn}
+                - !Sub ${ElasticsearchDomain.DomainArn}/*
+              - Effect: Allow
+                Action:
+                - es:ESHttpGet
+                Resource:
+                - !Sub ${ElasticsearchDomain.DomainArn}/_all/_settings
+                - !Sub ${ElasticsearchDomain.DomainArn}/_cluster/stats
+                - !Sub ${ElasticsearchDomain.DomainArn}/index-name*/_mapping/type-name
+                - !Sub ${ElasticsearchDomain.DomainArn}/_nodes
+                - !Sub ${ElasticsearchDomain.DomainArn}/_nodes/stats
+                - !Sub ${ElasticsearchDomain.DomainArn}/_nodes/*/stats
+                - !Sub ${ElasticsearchDomain.DomainArn}/_stats
+                - !Sub ${ElasticsearchDomain.DomainArn}/index-name*/_stats
+
+  ElasticSearchDeliveryStream: 
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties: 
+      ElasticsearchDestinationConfiguration: 
+        BufferingHints: 
+          IntervalInSeconds: 60
+          SizeInMBs: 50
+        DomainARN: !GetAtt ElasticsearchDomain.DomainArn
+        IndexName: 
+          Ref: DomainName
+        IndexRotationPeriod: "NoRotation"
+        TypeName: "fromFirehose"
+        RetryOptions: 
+          DurationInSeconds: "60"
+        RoleARN: 
+          Fn::GetAtt: 
+            - "kinesisRole"
+            - "Arn"
+        S3BackupMode: "AllDocuments"
+        S3Configuration: 
+          BucketARN: !GetAtt outputBucket.Arn
+          BufferingHints: 
+            IntervalInSeconds: "60"
+            SizeInMBs: "50"
+          CompressionFormat: "UNCOMPRESSED"
+          Prefix: "firehose/"
+          RoleARN: 
+            Fn::GetAtt: 
+              - "kinesisRole"
+              - "Arn"
+
+  MyJobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "glue.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      Policies:
+        -
+          PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                - s3:GetObject
+                Resource:
+                - !Sub arn:aws:s3:::${outputBucket}
+                - !Sub arn:aws:s3:::${outputBucket}/*
+              - Effect: Allow
+                Action:
+                - firehose:DeleteDeliveryStream
+                - firehose:PutRecord
+                - firehose:PutRecordBatch
+                - firehose:UpdateDestination
+                Resource:
+                - !GetAtt ElasticSearchDeliveryStream.Arn
+ 
+  MyJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Command:
+        Name: pythonshell
+        ScriptLocation: "s3://aws-glue-scripts-008369042577-eu-west-2/glue-kinesis.py"
+      ExecutionProperty:
+        MaxConcurrentRuns: 2
+      MaxRetries: 0
+      Name: !Ref DomainName
+      Role: !Ref MyJobRole
+
+Outputs:
+  UserPoolId:
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPool"
+  UserPoolArn:
+    Value: !GetAtt UserPool.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolArn"
+  IdentityPoolId:
+    Value: !Ref IdentityPool
+    Export:
+      Name: !Sub "${AWS::StackName}-IdentityPool"
