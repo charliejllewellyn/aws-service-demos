@@ -35,3 +35,7 @@ Follow this guide to enable it https://docs.aws.amazon.com/cognito/latest/develo
 - Select KibanaIDPool for "Cognito Identity Pool"
 - Enter *CognitoAccessForAmazonES* for "IAM Role Name"
 - Click submit changes
+
+# Testing
+
+Once the configuration is complete you need to upload your data to the ingest bucket, update the script to read your data and perform any ETL.
