@@ -8,6 +8,7 @@ def writeObject(event):
     bucket = os.environ['OUTPUT_BUCKET']
     key = event[0]['ProcessingEngine'] + '/' + event[1]['Records'][0]['s3']['object']['eTag']
     data = event[2]
+    data['ObjectId'] = key
     fileData = str.encode(json.dumps(data))
     response = s3.put_object(
     Bucket=bucket,
@@ -19,5 +20,6 @@ def lambda_handler(event, context):
     for singleEvent in event:
       print(writeObject(singleEvent))
     return 
+
 
 
