@@ -3,8 +3,6 @@ import json
 import os
 
 s3 = boto3.client('s3')
-comprehend = boto3.client('comprehend')
-
 
 def getObjectDetails(event):
     bucket = event[1]['Records'][0]['s3']['bucket']['name']
@@ -39,6 +37,7 @@ def runComprehend(event):
     return output
 
 def lambda_handler(event, context):
+    comprehend = boto3.client('comprehend')
     print(event)
     event.append(runComprehend(event))
     return event

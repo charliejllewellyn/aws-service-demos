@@ -1,0 +1,111 @@
+{
+  "Comment": "A sample data prcoessing application",
+  "StartAt": "IdentifyDataType",
+  "States": {
+    "IdentifyDataType": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-west-1:008369042577:function:MyApp-dataType-JQZY3I8MF0T2",
+      "ResultPath": "$",
+      "Next": "writeDynamo"
+    },
+    "writeDynamo": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-west-1:008369042577:function:MyApp-writeDynamo-1A75C3VU48TN1",
+      "ResultPath": "$",
+      "Next": "RouteDataType"
+    },
+  "RouteDataType": {
+  "Type" : "Choice",
+  "Choices": [{
+    "Variable": "$[0].dataType",
+    "StringEquals": "image/jpeg",
+    "Next": "runRekognition"
+  },{
+    "Variable": "$[0].dataType",
+    "StringEquals": "text/plain",
+    "Next": "runComprehend"
+  }],
+  "Default": "inconclusiveDataType"
+},
+    "runRekognition": {
+      "Type": "Parallel",
+            "Branches": [
+        {
+         "StartAt": "detectLabels",
+         "States": {
+           "detectLabels": {
+             "Type": "Task",
+             "Resource": "arn:aws:lambda:eu-west-1:008369042577:function:MyApp-rekognitionFunction-180M57ICZS4L8",
+             "End": true
+           }
+         }
+       },
+       {
+         "StartAt": "detectFaces",
+         "States": {
+           "detectFaces": {
+             "Type": "Task",
+             "Resource": "arn:aws:lambda:eu-west-1:008369042577:function:MyApp-rekognitionFaceFunction-1SH3I1BMX96HZ",
+             "End": true
+           }
+         }
+       },
+       {
+         "StartAt": "detectText",
+         "States": {
+               "Skip": {
+      "Type": "Pass",
+      "End": true
+    },
+           "detectText": {
+             "Type": "Task",
+             "Resource": "arn:aws:lambda:eu-west-1:008369042577:function:MyApp-rekognitionTextFunction-U14S4658ZM83",
+             "Next": "ifTextFoundProcess"
+           },
+           "ifTextFoundProcess": {
+           	"Type": "Choice",
+           	"Choices": [{
+           		"Variable": "$[2].TextDetections.has_elements",
+           		"BooleanEquals": true,
+           		"Next": "runRekComprehend"
+           	},
+    {
+      "Variable": "$[2].TextDetections.has_elements",
+      "BooleanEquals": false,
+      "Next": "Skip"
+    }
+                       ]
+           },
+           "runRekComprehend": {
+           	"Type": "Task",
+           	"Resource": "arn:aws:lambda:eu-west-1:008369042577:function:MyApp-rekognitionComprehendFunction-DRXFH4YZ1F7M",
+           	"End": true
+           }
+         }
+       }
+      ],
+      "Next": "writeOutput"
+    },
+    "runComprehend": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-west-1:008369042577:function:MyApp-comprehendFunction-ANVR8V1NF89Q",
+      "Next": "writeOutput"
+    },
+    "inconclusiveDataType": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-west-1:008369042577:function:MyApp-inconclusiveDataType-4M320PS62FXP",
+      "End": true
+    },
+    "writeOutput": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-west-1:008369042577:function:MyApp-writeOutput-14O3D5UR2GBZS",
+      "Next": "updateDynamo"
+    },
+    "updateDynamo": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-west-1:008369042577:function:MyApp-updateDynamo-1936C4AYMZ7ST",
+      "End": true
+    }
+  }
+}
+

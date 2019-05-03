@@ -248,20 +248,7 @@ Resources:
                        "detectText": {
                          "Type": "Task",
                          "Resource": "${rekognitionText}",
-                         "Next": "ifTextFoundProcess"
-                       },
-                       "ifTextFoundProcess": {
-                       	"Type": "Choice",
-                       	"Choices": [{
-                       		"Variable": "$[2].TextDetections",
-                       		"StringEquals": "",
-                       		"Next": "runRekComprehend"
-                       	}]
-                       },
-                       "runRekComprehend": {
-                       	"Type": "Task",
-                       	"Resource": "${rekcognitionComprehend}",
-                       	"End": true
+                         "End": true
                        }
                      }
                    }
@@ -452,6 +439,31 @@ Resources:
       ProvisionedThroughput: 
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
+
+  triggerTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: "TrafficGenerationTrigger"
+
+  trafficGeneration:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: trafficGeneration.lambda_handler
+      Runtime: python3.7
+      CodeUri: ./trafficGeneration
+      Policies:
+      - AmazonS3FullAccess
+      - AmazonSNSFullAccess
+      Environment:
+        Variables:
+          INPUT_BUCKET: !Ref InputBucket
+          SNS_TOPIC: !Ref triggerTopic
+      Timeout: 30
+      Events:
+        SnsTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref triggerTopic
 
 Outputs:
   InputBucket:

@@ -297,6 +297,10 @@ Resources:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/python:3.6.5
+        EnvironmentVariables:
+          - Name: CODEPIPELINE_BUCKET
+            Type: PLAINTEXT
+            Value: !Ref CodePipelineBucket
       Source:
         Type: CODEPIPELINE
       TimeoutInMinutes: 10
@@ -466,3 +470,6 @@ Outputs:
   CodeDeployBucketForLambdaDeployments:
     Description: The bucket used to hold lambda functions for deployments
     Value: !Ref CodePipelineBucket
+  CodeCommitUrl:
+    Description: Code commit SSH url
+    Value: !GetAtt CodeCommitRepo.CloneUrlSsh
