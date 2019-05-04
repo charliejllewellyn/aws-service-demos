@@ -196,13 +196,13 @@ Resources:
               "States": {
                 "IdentifyDataType": {
                   "Type": "Task",
-                  "Resource": "${dataType}",
+                  "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-application-dataType-DMKV7F7MYPSB",
                   "ResultPath": "$",
                   "Next": "writeDynamo"
                 },
                 "writeDynamo": {
                   "Type": "Task",
-                  "Resource": "${writeDynamo}",
+                  "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-application-writeDynamo-1N868AQZ7EPVT",
                   "ResultPath": "$",
                   "Next": "RouteDataType"
                 },
@@ -215,7 +215,7 @@ Resources:
               },{
                 "Variable": "$[0].dataType",
                 "StringEquals": "text/plain",
-                "Next": "runComprehendSentiment"
+                "Next": "runComprehend"
               }],
               "Default": "inconclusiveDataType"
             },
@@ -227,7 +227,7 @@ Resources:
                      "States": {
                        "detectLabels": {
                          "Type": "Task",
-                         "Resource": "${rekognition}",
+                         "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-appli-rekognitionFunction-1B43OXIH5SHYA",
                          "End": true
                        }
                      }
@@ -237,7 +237,7 @@ Resources:
                      "States": {
                        "detectFaces": {
                          "Type": "Task",
-                         "Resource": "${rekognitionFaces}",
+                         "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-a-rekognitionFaceFunction-C64P9O42X28O",
                          "End": true
                        }
                      }
@@ -247,7 +247,7 @@ Resources:
                      "States": {
                        "detectText": {
                          "Type": "Task",
-                         "Resource": "${rekognitionText}",
+                         "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-a-rekognitionTextFunction-3I8HMGHSQPNG",
                          "End": true
                        }
                      }
@@ -255,24 +255,34 @@ Resources:
                   ],
                   "Next": "writeOutput"
                 },
+                    "runComprehend": {
+                  "Type": "Parallel",
+                        "Branches": [
+                       {
+                     "StartAt": "runComprehendSentiment",
+                     "States": {
                 "runComprehendSentiment": {
                   "Type": "Task",
-                  "Resource": "${comprehend}",
+                  "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-applic-comprehendFunction-WKA2GVOBQJZQ",
+                  "End": true
+                }
+            }
+            }],
                   "Next": "writeOutput"
                 },
                 "inconclusiveDataType": {
                   "Type": "Task",
-                  "Resource": "${inconclusiveDataType}",
+                  "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-appl-inconclusiveDataType-1J8C6J616EAH5",
                   "End": true
                 },
                 "writeOutput": {
                   "Type": "Task",
-                  "Resource": "${writeOutput}",
+                  "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-application-writeOutput-UYVUEK9TSZ0N",
                   "Next": "updateDynamo"
                 },
                 "updateDynamo": {
                   "Type": "Task",
-                  "Resource": "${updateDynamo}",
+                  "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-application-updateDynamo-6J9NE5X6Z3HE",
                   "End": true
                 }
               }
