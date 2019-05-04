@@ -215,7 +215,7 @@ Resources:
               },{
                 "Variable": "$[0].dataType",
                 "StringEquals": "text/plain",
-                "Next": "runComprehend"
+                "Next": "runComprehendSentiment"
               }],
               "Default": "inconclusiveDataType"
             },
@@ -255,7 +255,7 @@ Resources:
                   ],
                   "Next": "writeOutput"
                 },
-                "runComprehend": {
+                "runComprehendSentiment": {
                   "Type": "Task",
                   "Resource": "${comprehend}",
                   "Next": "writeOutput"
@@ -458,7 +458,7 @@ Resources:
         Variables:
           INPUT_BUCKET: !Ref InputBucket
           SNS_TOPIC: !Ref triggerTopic
-      Timeout: 30
+      Timeout: 900
       Events:
         SnsTrigger:
           Type: SNS
