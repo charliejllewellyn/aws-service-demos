@@ -69,8 +69,16 @@ def sendSns():
     Message='trigger content'
 )
 
+def checktime(context):
+    return context.get_remaining_time_in_millis()
+
 def lambda_handler(event, context):
-    time.sleep(10)
-    sendSns()
-    uploadImage()
+    while checktime(context) >= 15000:
+        uploadImage()
+        time.sleep(5)
+    else:
+        print('Starting new function')
+        sendSns()
+        return
+
 
