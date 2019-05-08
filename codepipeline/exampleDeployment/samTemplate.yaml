@@ -196,13 +196,13 @@ Resources:
               "States": {
                 "IdentifyDataType": {
                   "Type": "Task",
-                  "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-application-dataType-DMKV7F7MYPSB",
+                  "Resource": "${dataType}",
                   "ResultPath": "$",
                   "Next": "writeDynamo"
                 },
                 "writeDynamo": {
                   "Type": "Task",
-                  "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-application-writeDynamo-1N868AQZ7EPVT",
+                  "Resource": "${writeDynamo}",
                   "ResultPath": "$",
                   "Next": "RouteDataType"
                 },
@@ -227,7 +227,7 @@ Resources:
                      "States": {
                        "detectLabels": {
                          "Type": "Task",
-                         "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-appli-rekognitionFunction-1B43OXIH5SHYA",
+                         "Resource": "${rekognition}",
                          "End": true
                        }
                      }
@@ -237,7 +237,7 @@ Resources:
                      "States": {
                        "detectFaces": {
                          "Type": "Task",
-                         "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-a-rekognitionFaceFunction-C64P9O42X28O",
+                         "Resource": "${rekognitionFaces}",
                          "End": true
                        }
                      }
@@ -247,7 +247,7 @@ Resources:
                      "States": {
                        "detectText": {
                          "Type": "Task",
-                         "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-a-rekognitionTextFunction-3I8HMGHSQPNG",
+                         "Resource": "${rekognitionText}",
                          "End": true
                        }
                      }
@@ -263,7 +263,7 @@ Resources:
                      "States": {
                 "runComprehendSentiment": {
                   "Type": "Task",
-                  "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-applic-comprehendFunction-WKA2GVOBQJZQ",
+                  "Resource": "${comprehend}",
                   "End": true
                 }
             }
@@ -272,17 +272,17 @@ Resources:
                 },
                 "inconclusiveDataType": {
                   "Type": "Task",
-                  "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-appl-inconclusiveDataType-1J8C6J616EAH5",
+                  "Resource": "${inconclusiveDataType}",
                   "End": true
                 },
                 "writeOutput": {
                   "Type": "Task",
-                  "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-application-writeOutput-UYVUEK9TSZ0N",
+                  "Resource": "${writeOutput}",
                   "Next": "updateDynamo"
                 },
                 "updateDynamo": {
                   "Type": "Task",
-                  "Resource": "arn:aws:lambda:eu-west-1:839834627805:function:serverlessdataprocessing-application-updateDynamo-6J9NE5X6Z3HE",
+                  "Resource": "${updateDynamo}",
                   "End": true
                 }
               }
