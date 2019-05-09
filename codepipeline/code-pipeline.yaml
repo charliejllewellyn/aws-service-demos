@@ -4,6 +4,14 @@ Parameters:
   ProjectName:
     Type: String
     Description: Project name that will be used to name and identify resoures that are created
+    Default: serverlessdataprocessing
+  ConfigureTestPhase:
+    Type: String
+    Description: Add stage to pipeline to run unitests
+    Default: true
+
+Conditions: 
+  CreateTestStage: !Equals [ !Ref ConfigureTestPhase, true ]
 
 Resources:
 
@@ -286,6 +294,23 @@ Resources:
                 Effect: Allow
                 Resource: '*'
 
+  CodeBuildUnittestProject:
+    Type: AWS::CodeBuild::Project
+    Condition: CreateTestStage
+    Properties:
+      Name: !Join [ '', [ !Ref ProjectName, '-CodeBuild-Unittests' ] ]
+      ServiceRole: !Ref CodeBuildRole
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/python:3.7.1
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: 'pip install nose2 boto3 && nose2 -v'
+      TimeoutInMinutes: 10
+
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -328,7 +353,6 @@ Resources:
               Resource:
                 - !Join [ '', [ 'arn:aws:codepipeline:', !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ':', !Ref CodePipeline ] ]
 
-          
   CodePipeline:
     Type: "AWS::CodePipeline::Pipeline"
     Properties:
@@ -357,6 +381,25 @@ Resources:
                 - 
                   Name: MyApp
               RunOrder: 1
+        - !If 
+            - CreateTestStage
+            - 
+              Name: Testing
+              Actions:
+                - 
+                  Name: CodeBuild
+                  InputArtifacts:
+                    - 
+                      Name: MyApp
+                  Configuration:
+                    ProjectName: !Ref CodeBuildUnittestProject
+                  ActionTypeId:
+                    Category: Build
+                    Owner: AWS
+                    Version: 1
+                    Provider: CodeBuild
+                  RunOrder: 1
+            - !Ref "AWS::NoValue"
         - 
           Name: Build
           Actions: 
