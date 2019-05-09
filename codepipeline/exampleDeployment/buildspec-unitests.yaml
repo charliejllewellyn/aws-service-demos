@@ -1,0 +1,11 @@
+version: 0.1
+phases:
+  install:
+    commands:
+      - pip install nose2 boto3
+      - nose2 -v
+artifacts:
+  type: zip
+  files:
+    - samTemplate.yaml
+    - outputSamTemplate.yaml

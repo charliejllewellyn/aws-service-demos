@@ -308,7 +308,7 @@ Resources:
         Image: aws/codebuild/python:3.7.1
       Source:
         Type: CODEPIPELINE
-        BuildSpec: 'pip install nose2 boto3 && nose2 -v'
+        BuildSpec: 'buildspec-unitests.yaml'
       TimeoutInMinutes: 10
 
   CodeBuildProject:
