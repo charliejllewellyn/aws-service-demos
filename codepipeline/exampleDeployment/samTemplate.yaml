@@ -475,6 +475,13 @@ Resources:
           Properties:
             Topic: !Ref triggerTopic
 
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: "serverlessdataprocessing"
+
 Outputs:
   InputBucket:
     Description: The bucket where objects are uploaded to trigger the data pipepline
