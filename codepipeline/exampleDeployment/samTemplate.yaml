@@ -482,6 +482,46 @@ Resources:
       DatabaseInput:
         Name: "serverlessdataprocessing"
 
+  GlueRoleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "glue.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        -
+          PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action: "*"
+                Resource: "*"
+
+  GlueCrawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: "serverlessdataprocessingcrawler"
+      Role: !GetAtt GlueRoleRole.Arn
+      DatabaseName: !Ref GlueDatabase
+      Targets:
+        S3Targets:
+          - Path: !Ref OutputBucket
+      SchemaChangePolicy:
+        UpdateBehavior: "UPDATE_IN_DATABASE"
+        DeleteBehavior: "LOG"
+      Schedule:
+        ScheduleExpression: "cron(* * * * ? *)"
+
 Outputs:
   InputBucket:
     Description: The bucket where objects are uploaded to trigger the data pipepline
