@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+	 <!--Cognito JavaScript-->
+	<script src="js/amazon-cognito-identity.min.js"></script>  
+	<script src="js/config.js"></script>
+	<script src="js/aws-sdk-2.453.0.min.js"></script>
+  </head>
+
+  <body>
+	<div class="container">
+      <div>
+        <h2>User Profile</h2>
+		<button type="button" onclick="signOut()">Sign out</button>
+      </div>
+	
+	<div>
+
+		<h4>Sagemaker Details</h4>
+
+		<label id="box"></label>
+		
+		<br>
+		<div>
+			<label>Sagemaker Notepoint URL <span></span></label>
+		</div>
+		<div>
+			<label id="sagemaker_value"></label>
+		</div>
+		
+    </div>
+
+    <script>
+	var data = { 
+		UserPoolId : _config.cognito.userPoolId,
+        ClientId : _config.cognito.clientId
+    };
+    var userPool = new AmazonCognitoIdentity.CognitoUserPool(data);
+    var cognitoUser = userPool.getCurrentUser();
+	
+	window.onload = function(){
+    if (cognitoUser != null) {
+        cognitoUser.getSession(function(err, session) {
+            if (err) {
+                alert(err);
+                return;
+            }
+            console.log('session validity: ' + session.isValid());
+		var jwt = session.idToken.jwtToken;
+		console.log(session)
+		console.log(jwt)
+		AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+                        IdentityPoolId: 'eu-west-2:b8b8eeaa-a644-4e36-81e9-bdd1f81b67a7',
+                        Logins: {
+                                'cognito-idp.eu-west-2.amazonaws.com/eu-west-2_JiLM5LUdf': session.getIdToken().getJwtToken()
+                        }
+                });
+			//Set the profile info
+			/*cognitoUser.getUserAttributes(function(err, result) {
+				if (err) {
+					console.log(err);
+					return;
+				}
+				console.log('here')
+				console.log(result);
+				document.getElementById("email_value").innerHTML = result[2].getValue();	
+			});			*/
+		AWS.config.region = 'eu-west-2';
+                var sagemaker = new AWS.SageMaker();
+		var params = {}
+		sagemaker.listNotebookInstances(params, function(err, data) {
+                if (err) console.log(err, err.stack); // an error occurred
+                else     console.log(data); 
+                    var rows = data.NotebookInstances;
+		    rows.forEach(function(element) { 
+			    console.log(element.NotebookInstanceName);
+                            var params = {
+                              NotebookInstanceName: element.NotebookInstanceName, /* required */
+                              SessionExpirationDurationInSeconds: '3600'
+                            };
+			    var sagemakeNotebookUrl;
+	                    /*var button1 = '<button onclick="window.location.href = \''
+		            var button2 = '\';">Click Here</button>'
+	                    var res1 = button1.concat(sagemakeNotebookUrl);
+	                    var res2 = res1.concat(button2);
+		            element.Url = res2;*/
+			    console.log('here')
+			    console.log(rows)
+	                    //getUrl(params, updateDict(element));
+			    console.log(rows)
+                    }); 
+
+                function updateDict(sagemakeNotebookUrl, element) {
+			var button1 = '<button onclick="window.location.href = \''
+			    console.log(sagemakeNotebookUrl)
+                            //var button2 = '\';">Click Here</button>'
+                            //var res1 = button1.concat(sagemakeNotebookUrl);
+                            //var res2 = res1.concat(button2);
+                            //element.Url = res2;
+			    //return element;
+		}
+
+
+                function getUrl(params) {
+		    return sm = sagemaker.createPresignedNotebookInstanceUrl(params, function(err, data) {
+                            if (err) console.log(err, err.stack); // an error occurred
+                            else     console.log(data.AuthorizedUrl);           // successful response
+                                  var sagemakeNotebookUrl = data.AuthorizedUrl;
+			          updateDict(sagemakeNotebookUrl, element)
+                                  //console.log(data)
+                                  //var a = document.createElement('a');
+                                  //var linkText = document.createTextNode("Notebook signed URL");
+                                  //a.title = "Notebook signed URL";
+                                  //a.href = sagemakeNotebookUrl;
+                                  //document.getElementById("sagemaker_value").innerHTML = a;
+                                  //window.open(sagemakeNotebookUrl, '_blank');
+                            });
+		}
+
+		var html = "<table border='1|1'>";
+                for (var i = 0; i < rows.length; i++) {
+                    html+="<tr>";
+                    html+="<td>"+rows[i].NotebookInstanceName+"</td>";
+                    html+="<td>"+rows[i].InstanceType+"</td>";
+                    html+="<td>"+rows[i].NotebookInstanceStatus+"</td>";
+                    html+="<td>"+rows[i].Url+"</td>";
+                
+                    html+="</tr>";
+                
+                }
+                html+="</table>";
+                document.getElementById("box").innerHTML = html;
+                });
+                //var params = {
+                //  NotebookInstanceName: 'NCADemo2', /* required */
+                //  SessionExpirationDurationInSeconds: '3600'
+                //};
+                //sagemaker.createPresignedNotebookInstanceUrl(params, function(err, data) {
+                //  if (err) console.log(err, err.stack); // an error occurred
+                //  else     console.log(data.AuthorizedUrl);           // successful response
+		//	var sagemakeNotebookUrl = data.AuthorizedUrl;
+		//	var a = document.createElement('a');
+		//	var linkText = document.createTextNode("Notebook signed URL");
+		//	a.title = "Notebook signed URL";
+		//	a.href = sagemakeNotebookUrl;
+		//        document.getElementById("sagemaker_value").innerHTML = a;
+		//	//window.open(sagemakeNotebookUrl, '_blank');
+                //});
+                			
+                        });
+                    }
+                }
+	function signOut(){
+	    if (cognitoUser != null) {
+          cognitoUser.signOut();	  
+        }
+	}
+    </script>
+  </body>
+</html>

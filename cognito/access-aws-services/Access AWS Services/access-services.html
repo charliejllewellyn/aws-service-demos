@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+	 <!--Cognito JavaScript-->
+	<script src="js/amazon-cognito-identity.min.js"></script>  
+	<script src="js/config.js"></script>
+	<script src="js/aws-sdk-2.453.0.min.js"></script>
+  </head>
+
+  <body>
+	<div class="container">
+      <div>
+        <h2>User Profile</h2>
+		<button type="button" onclick="signOut()">Sign out</button>
+      </div>
+	
+	<div>
+		<h4> Access key details
+
+                <div>
+                        <label id="access_keys"></label>
+                </div>
+
+		<h4>Sagemaker</h4>
+		
+		<br>
+		<div>
+			<label>Notebook URL <span></span></label>
+		</div>
+		<div>
+			<label id="notebook_url"></label>
+		</div>
+		
+    </div>
+
+    <script>
+	var data = { 
+		UserPoolId : _config.cognito.userPoolId,
+        ClientId : _config.cognito.clientId
+    };
+    var userPool = new AmazonCognitoIdentity.CognitoUserPool(data);
+    var cognitoUser = userPool.getCurrentUser();
+	
+	window.onload = function(){
+    if (cognitoUser != null) {
+        cognitoUser.getSession(function(err, session) {
+            if (err) {
+                alert(err);
+                return;
+            }
+            console.log('session validity: ' + session.isValid());
+		var jwt = session.idToken.jwtToken;
+		console.log(session)
+		console.log(jwt)
+			//Set the profile info
+			cognitoUser.getUserAttributes(function(err, result) {
+				if (err) {
+					console.log(err);
+					return;
+				}
+				AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+					IdentityPoolId: 'eu-west-2:b8b8eeaa-a644-4e36-81e9-bdd1f81b67a7',
+					Logins: {
+                                        'cognito-idp.eu-west-2.amazonaws.com/eu-west-2_JiLM5LUdf': session.getIdToken().getJwtToken()
+                                    }
+                                });
+				console.log(AWS.config.credentials)
+				document.getElementById("access_keys").innerHTML = 'export AWS_ACCESS_KEY_ID' + AWS.Config.credentials
+				AWS.config.region = 'eu-west-2';
+                                var sagemaker = new AWS.SageMaker();
+                                var params = {
+                                  NotebookInstanceName: 'NCADemo1', /* required */
+                                  SessionExpirationDurationInSeconds: '3600'
+                                };
+                                sagemaker.createPresignedNotebookInstanceUrl(params, function(err, data) {
+                                  if (err) console.log(err, err.stack); // an error occurred
+                                  else     
+					document.getElementById("notebook_url").innerHTML = data.AuthorizedUrl;           // successful response
+					window.open(data.AuthorizedUrl);
+                                });
+			});			
+			
+        });
+    }
+}
+	function signOut(){
+	    if (cognitoUser != null) {
+          cognitoUser.signOut();	  
+        }
+	}
+    </script>
+  </body>
+</html>
