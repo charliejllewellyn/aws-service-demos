@@ -2,8 +2,8 @@ import boto3
 import requests
 from requests_aws4auth import AWS4Auth
 
-host = '' # include https:// and trailing /
-region = '' # e.g. us-west-1
+host = 'https://search-sauron-qlz4lu3si5bctffiknha7gmnhm.eu-west-1.es.amazonaws.com/' # include https:// and trailing /
+region = 'eu-west-1' # e.g. us-west-1
 service = 'es'
 reponame = '' # e.g. my-repo
 bucketname = 'cjl-eu-west-2' # do NOT include s3:// or trailing / e.g. sample-bucket-name
@@ -37,6 +37,18 @@ def setupRepo():
   print(r.status_code)
   print(r.text)
 
+def listRepos():
+  path = '_snapshot/cs-automated/_all?pretty' # the Elasticsearch API endpoint
+  #path = '_snapshot' # the Elasticsearch API endpoint
+  url = host + path
+
+  headers = {"Content-Type": "application/json"}
+
+  r = requests.get(url, auth=awsauth, headers=headers)
+
+  print(r.status_code)
+  print(r.text)
+
 # Take snapshot
 
 def takeSnapshot():
@@ -60,7 +72,8 @@ def getSnapshotStatus():
 # Delete index
 
 def deleteIndex():
-  path = '.kibana_1'
+  #path = '.kibana_1'
+  path = 'sauron-2019-w27'
   url = host + path
  
   r = requests.delete(url, auth=awsauth)
@@ -91,8 +104,33 @@ def restoreSingleIndex():
   
   print(r.text)
 
+def createIndex():
+  path = 'test'
+  url = host + path
+
+  headers = {"Content-Type": "application/json"}
+
+  r = requests.put(url, auth=awsauth, headers=headers)
+
+  print(r.text)
+
+def insertData():
+  path = 'test/test'
+  url = host + path
+
+  payload = {"request": {"data": "Test message from somewhere!"}, "id": "req_123"}
+
+  headers = {"Content-Type": "application/json"}
+
+  r = requests.post(url, auth=awsauth, json=payload, headers=headers)
+
+  print(r.text)
+
+#createIndex()
+#insertData()
 #setupRepo()
+#listRepos()
 #getSnapshotStatus()
-#deleteIndex()
+deleteIndex()
 #restoreAllIndicies()
 #restoreSingleIndex()
