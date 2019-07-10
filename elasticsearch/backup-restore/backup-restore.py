@@ -7,7 +7,7 @@ region = 'eu-west-1' # e.g. us-west-1
 service = 'es'
 reponame = '' # e.g. my-repo
 bucketname = 'cjl-eu-west-2' # do NOT include s3:// or trailing / e.g. sample-bucket-name
-prefix = '/sample_datasets/enron_emails/elasticsearch_backup' # include starting / but do NOT include trailing / e.g. /elasticsearch_backup
+prefix = 'sample_datasets/enron_emails/elasticsearch_backup' # include starting / but do NOT include trailing / e.g. /elasticsearch_backup
 backupRoleArn = 'arn:aws:iam::008369042577:role/elasticsearch-backup-role' # IAM role with trust for ES to access the bucket, see https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/es-managedomains-snapshots.html, e.g. arn:aws:iam::111111111111:role/elasticsearch-backup-role
 snapshotname = '' # e.g. mysnapshot
 
