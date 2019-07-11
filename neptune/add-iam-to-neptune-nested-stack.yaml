@@ -1,0 +1,231 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Custom CloudFormation resource with Lambda that adds an IAM role to a
+  Neptune cluster.
+Parameters:
+  LambdaRuntime:
+    Description: The Lambda runtime to use
+    Type: String
+    AllowedValues:
+    - nodejs4.3
+    - python2.7
+    - java8
+    Default: python2.7
+  HandlerName:
+    Description: The name of the lambda handler
+    Type: String
+    Default: handler
+  ModuleName:
+    Description: The name of the script file
+    Type: String
+    Default: index
+  NeptuneLoadFromS3IAMRoleArn:
+    Description: IAM Role for loading data in Neptune
+    Type: String
+  DBClusterId:
+    Description: Neptune Cluster Identifier
+    Type: String
+Resources:
+  CustomFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile:
+          Fn::Join:
+          - ''
+          - - 'import json
+
+'
+            - 'import httplib
+
+'
+            - 'import logging
+
+'
+            - 'import boto3
+
+'
+            - 'from urllib2 import build_opener, HTTPHandler, Request
+
+'
+            - "\n"
+            - 'logger = logging.getLogger()
+
+'
+            - 'logger.setLevel(logging.INFO)
+
+'
+            - "\n"
+            - 'def handler(event, context):
+
+'
+            - "    logger.info('REQUEST RECEIVED: {}'.format(event))\n"
+            - "    logger.info('REQUEST RECEIVED: {}'.format(context))\n"
+            - "    if event['RequestType'] == 'Create':\n"
+            - "        logger.info('CREATE')\n"
+            - "        \n"
+            - "        dbClusterId = event['ResourceProperties']['DBClusterId']\n"
+            - "        iamRoleArn = event['ResourceProperties']['NeptuneLoadFromS3IAMRoleArn']\n"
+            - "        \n"
+            - "        addIamRole(dbClusterId, iamRoleArn)\n"
+            - '        sendResponse(event, context, "SUCCESS", { "Message": "Resource
+              creation successful!" })
+
+'
+            - "    elif event['RequestType'] == 'Update':\n"
+            - "        logger.info('UPDATE')\n"
+            - '        sendResponse(event, context, "SUCCESS", { "Message": "Resource
+              update successful!" })
+
+'
+            - "    elif event['RequestType'] == 'Delete':\n"
+            - "        logger.info('DELETE')\n"
+            - '        sendResponse(event, context, "SUCCESS", { "Message": "Resource
+              deletion successful!" })
+
+'
+            - "    else:\n"
+            - "        logger.info('FAILED!')\n"
+            - '        sendResponse(event, context, "FAILED", { "Message": "Unexpected
+              event received from CloudFormation" })
+
+'
+            - "        \n"
+            - 'def addIamRole(dbClusterId, iamRoleArn):
+
+'
+            - "    logger.info('DBClusterId: {}'.format(dbClusterId))\n"
+            - "    logger.info('NeptuneLoadFromS3IAMRoleArn: {}'.format(iamRoleArn))\n"
+            - "   \n"
+            - "    client = boto3.client('neptune')\n"
+            - "    client.add_role_to_db_cluster(\n"
+            - "        DBClusterIdentifier=dbClusterId,\n"
+            - "        RoleArn=iamRoleArn\n"
+            - "    )\n"
+            - "\n"
+            - 'def sendResponse(event, context, responseStatus, responseData):
+
+'
+            - "    responseBody = json.dumps({\n"
+            - '        "Status": responseStatus,
+
+'
+            - '        "Reason": "See the details in CloudWatch Log Stream: " + context.log_stream_name,
+
+'
+            - '        "PhysicalResourceId": context.log_stream_name,
+
+'
+            - '        "StackId": event[''StackId''],
+
+'
+            - '        "RequestId": event[''RequestId''],
+
+'
+            - '        "LogicalResourceId": event[''LogicalResourceId''],
+
+'
+            - '        "Data": responseData
+
+'
+            - "    })\n"
+            - "\n"
+            - "\n"
+            - "    logger.info('ResponseURL: {}'.format(event['ResponseURL']))\n"
+            - "    logger.info('ResponseBody: {}'.format(responseBody))\n"
+            - "\n"
+            - "    opener = build_opener(HTTPHandler)\n"
+            - "    request = Request(event['ResponseURL'], data=responseBody)\n"
+            - "    request.add_header('Content-Type', '')\n"
+            - "    request.add_header('Content-Length', len(responseBody))\n"
+            - "    request.get_method = lambda: 'PUT'\n"
+            - "    response = opener.open(request)\n"
+            - '    print("Status code: {}".format(response.getcode()))
+
+'
+            - '    print("Status message: {}".format(response.msg))
+
+'
+      Handler:
+        Fn::Join:
+        - ''
+        - - Ref: ModuleName
+          - "."
+          - Ref: HandlerName
+      Role:
+        Fn::GetAtt:
+        - LambdaExecutionRole
+        - Arn
+      Runtime:
+        Ref: LambdaRuntime
+      Timeout: '30'
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - ec2:DescribeImages
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - rds:AddRoleToDBCluster
+            Resource:
+              Fn::Join:
+              - ''
+              - - 'arn:aws:rds:'
+                - Ref: AWS::Region
+                - ":"
+                - Ref: AWS::AccountId
+                - ":cluster:"
+                - Ref: DBClusterId
+          - Effect: Allow
+            Action:
+            - iam:PassRole
+            Resource:
+              Ref: NeptuneLoadFromS3IAMRoleArn
+  CustomResource:
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+        - CustomFunction
+        - Arn
+      NeptuneLoadFromS3IAMRoleArn:
+        Ref: NeptuneLoadFromS3IAMRoleArn
+      DBClusterId:
+        Ref: DBClusterId
+Outputs:
+  Message:
+    Description: The message from the custom resource.
+    Value:
+      Fn::GetAtt:
+      - CustomResource
+      - Message
+  CustomFunctionArn:
+    Description: The arn of the custom resource function.
+    Value:
+      Fn::GetAtt:
+      - CustomFunction
+      - Arn
+

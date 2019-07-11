@@ -1,0 +1,1 @@
+{"Entities": [{"BeginOffset": 94, "EndOffset": 101, "Score": 0.635079026222229, "Text": "crystal", "Type": "DRUG"}, {"BeginOffset": 1365, "EndOffset": 1372, "Score": 0.7508751153945923, "Text": "crystal", "Type": "DRUG"}, {"BeginOffset": 2061, "EndOffset": 2065, "Score": 0.6061952710151672, "Text": "Meth", "Type": "DRUG"}], "File": "testFile.txt", "Line": 0}

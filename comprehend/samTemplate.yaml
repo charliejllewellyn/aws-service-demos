@@ -1,0 +1,21 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Outputs the time
+
+Resources:
+   
+  analyseCustomEntity:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: analyseCustomEntity.lambda_handler
+      Runtime: python3.6
+      CodeUri: ./analyseCustomEntity
+      Policies:
+      - AmazonS3FullAccess
+        #Events:
+        #  MyTimeApi:
+        #    Type: S3
+        #    Properties:
+        #      Bucket: !Ref InputBucket
+        #      Events: s3:ObjectCreated:*
+      Timeout: 60

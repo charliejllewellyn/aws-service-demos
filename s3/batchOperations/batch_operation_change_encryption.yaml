@@ -140,3 +140,5 @@ Outputs:
     Value: !Ref LambdaExecutionRole
   S3BatchExecutionRole:
     Value: !Ref S3BatchExecutionRole
+  S3BatchOperationsLambdaName:
+    Value: !Ref S3BatchOperationsLambda

@@ -9,11 +9,11 @@ parser.add_argument("fileName")
 args = parser.parse_args()
 
 fileName = args.fileName
-newFileName = str(fileName.split('.')[:-1][0]) + '-rek.' + str(fileName.split('.')[-1])
+newFileName = str(fileName.split('.')[:-1][0]) + '-1.' + str(fileName.split('.')[-1])
 
 def rekFaceDetection(fileName):
 
-    rek = boto3.client('rekognition')
+    rek = boto3.client('rekognition', region_name='eu-west-1')
 
     fileBytes = open(fileName, "rb").read() 
     response = rek.detect_faces(
@@ -62,4 +62,5 @@ for faceCords in faceObj['FaceDetails']:
 del draw
 
 # write to stdout
+print(newFileName)
 im.save(newFileName)

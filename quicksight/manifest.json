@@ -1,0 +1,9 @@
+{
+    "fileLocations": [
+        {
+            "URIPrefixes": [
+                "s3://moj-quicksight-demo/timeliness-transparency-latest.csv"
+            ]
+        }
+    ]
+}
