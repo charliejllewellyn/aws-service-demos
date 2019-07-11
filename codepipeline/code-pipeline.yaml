@@ -46,6 +46,7 @@ Resources:
         - arn:aws:iam::aws:policy/AWSCodePipelineFullAccess
         - arn:aws:iam::aws:policy/AWSCodeDeployFullAccess
         - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess
       Path: /
       RoleName: !Join [ '', [ !Ref ProjectName, '-Codepipeline-Cloudformation-Role' ] ]
 
