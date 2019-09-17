@@ -76,6 +76,8 @@ Resources:
             Action: 
               - "sts:AssumeRole"
       Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
 
   LakeFormationDataAccessRole: 
     Type: "AWS::IAM::Policy"
@@ -114,3 +116,6 @@ Resources:
     Properties: 
       Admins:
         - DataLakePrincipalIdentifier: !GetAtt LakeFormationSAdministratorUser.Arn
+
+  LakeFormationBucket:
+    Type: AWS::S3::Bucket
