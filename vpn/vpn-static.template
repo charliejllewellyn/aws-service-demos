@@ -16,10 +16,10 @@ Parameters:
     Type: String
     Default: 58A478135A93AC3BF058A5EA0E8FDB71
     Description: Pre Shared Key for VPN config
-#  Psk2:
-#    Type: String
-#    Default: 58A478135A93AC3BF058A5EA0E8FDB71
-#    Description: Pre Shared Key for VPN config
+  Psk2:
+    Type: String
+    Default: 58A478135A93AC3BF058A5EA0E8FDB712
+    Description: Pre Shared Key for VPN config
 
 Mappings:
   RegionMap:
@@ -270,15 +270,38 @@ Resources:
                       dpdtimeout=30
                       dpdaction=restart_by_peer
               EOF
+
+              cat <<EOF >> /etc/ipsec.d/aws.conf
+              conn Tunnel2
+                      authby=secret
+                      auto=route
+                      left=%defaultroute
+                      leftid=${VPNeip}
+                      right=${TUNNELIP2}
+                      type=tunnel
+                      ikelifetime=8h
+                      keylife=1h
+                      phase2alg=aes128-sha1;modp1024
+                      ike=aes128-sha1;modp1024
+                      keyingtries=%forever
+                      keyexchange=ike
+                      leftsubnet=${OnpremiseVpcCidrBlock}
+                      rightsubnet=${AwsVpcCidrBlock}
+                      dpddelay=10
+                      dpdtimeout=30
+                      dpdaction=restart_by_peer
+              EOF
               
               echo '${VPNeip} ${TUNNELIP1}: PSK "${Psk1}"' > /etc/ipsec.d/aws.secrets
+              echo '${VPNeip} ${TUNNELIP2}: PSK "${Psk1}"' > /etc/ipsec.d/aws.secrets
               
               sed -i 's|%v4:${AwsVpcCidrBlock},||g' /etc/ipsec.conf
               sed -i 's|config setup|config setup\n        nat_traversal=yes|g' /etc/ipsec.conf
               systemctl enable ipsec.service
               systemctl enable --now ipsec.service
             - { 
-              TUNNELIP1: !GetAtt [ TunnelIp, OutsideIpAddress1 ]
+              TUNNELIP1: !GetAtt [ TunnelIp, OutsideIpAddress1 ],
+              TUNNELIP2: !GetAtt [ TunnelIp, OutsideIpAddress2 ]
               }
 
   VPNeip:
