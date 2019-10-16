@@ -18,7 +18,7 @@ Parameters:
     Description: Pre Shared Key for VPN config
   Psk2:
     Type: String
-    Default: F9E37E83B83C47A93C2F09F66408631B
+    Default: 58A478135A93AC3BF058A5EA0E8FDB71
     Description: Pre Shared Key for VPN config
 
 Mappings:
@@ -347,29 +347,29 @@ Resources:
           Key: Name
           Value: AWS-VPN
 
-  AwsPublicSubnetA:
-    Type: AWS::EC2::Subnet
-    Properties:
-      MapPublicIpOnLaunch: true
-      VpcId: !Ref AwsVpc
-      CidrBlock: !Select [0, !Cidr [!Ref AwsVpcCidrBlock, 6, 4]]
-      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
-      Tags:
-        -
-          Key: Name
-          Value: !Join [ "", [ "public-", a ] ]
-
-  AwsPublicSubnetB:
-    Type: AWS::EC2::Subnet
-    Properties:
-      MapPublicIpOnLaunch: true
-      VpcId: !Ref AwsVpc
-      CidrBlock: !Select [1, !Cidr [!Ref AwsVpcCidrBlock, 6, 4]]
-      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
-      Tags:
-        -
-          Key: Name
-          Value: !Join [ "", [ "public-", b ] ]
+#  AwsPublicSubnetA:
+#    Type: AWS::EC2::Subnet
+#    Properties:
+#      MapPublicIpOnLaunch: true
+#      VpcId: !Ref AwsVpc
+#      CidrBlock: !Select [0, !Cidr [!Ref AwsVpcCidrBlock, 6, 4]]
+#      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
+#      Tags:
+#        -
+#          Key: Name
+#          Value: !Join [ "", [ "public-", a ] ]
+#
+#  AwsPublicSubnetB:
+#    Type: AWS::EC2::Subnet
+#    Properties:
+#      MapPublicIpOnLaunch: true
+#      VpcId: !Ref AwsVpc
+#      CidrBlock: !Select [1, !Cidr [!Ref AwsVpcCidrBlock, 6, 4]]
+#      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
+#      Tags:
+#        -
+#          Key: Name
+#          Value: !Join [ "", [ "public-", b ] ]
 
   AwsPrivateSubnetA:
     Type: AWS::EC2::Subnet
@@ -393,26 +393,26 @@ Resources:
           Key: Name
           Value: !Join [ "", [ "private-", b ] ]
 
-  myAwsInternetGateway:
-    Type: "AWS::EC2::InternetGateway"
+#  myAwsInternetGateway:
+#    Type: "AWS::EC2::InternetGateway"
+#
+#  AwsAttachIgwVpc:
+#    Type: "AWS::EC2::VPCGatewayAttachment"
+#    Properties: 
+#      InternetGatewayId: !Ref myAwsInternetGateway
+#      VpcId: !Ref AwsVpc
 
-  AwsAttachIgwVpc:
-    Type: "AWS::EC2::VPCGatewayAttachment"
-    Properties: 
-      InternetGatewayId: !Ref myAwsInternetGateway
-      VpcId: !Ref AwsVpc
-
-  AwsPublicRouteTable:
+  AwsPrivateRouteTable:
     Type: "AWS::EC2::RouteTable"
     Properties: 
       VpcId: !Ref AwsVpc
 
-  AwsRoute:
-    Type: "AWS::EC2::Route"
-    Properties: 
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref myAwsInternetGateway
-      RouteTableId: !Ref AwsPublicRouteTable
+#  AwsRoute:
+#    Type: "AWS::EC2::Route"
+#    Properties: 
+#      DestinationCidrBlock: 0.0.0.0/0
+#      GatewayId: !Ref myAwsInternetGateway
+#      RouteTableId: !Ref AwsPublicRouteTable
 
   AwsRouteVPN:
     DependsOn: TunnelIp
@@ -420,19 +420,19 @@ Resources:
     Properties:
       DestinationCidrBlock: !Ref OnpremiseVpcCidrBlock
       GatewayId: !Ref AwsMyVPNGateway
-      RouteTableId: !Ref AwsPublicRouteTable
+      RouteTableId: !Ref AwsPrivateRouteTable
 
   AwsSubnetAssA:
     Type: "AWS::EC2::SubnetRouteTableAssociation"
     Properties:
-      RouteTableId: !Ref AwsPublicRouteTable
-      SubnetId: !Ref AwsPublicSubnetA
+      RouteTableId: !Ref AwsPrivateRouteTable
+      SubnetId: !Ref AwsPrivateSubnetA
 
   AwsSubnetAssB:
     Type: "AWS::EC2::SubnetRouteTableAssociation"
     Properties:
-      RouteTableId: !Ref AwsPublicRouteTable
-      SubnetId: !Ref AwsPublicSubnetB
+      RouteTableId: !Ref AwsPrivateRouteTable
+      SubnetId: !Ref AwsPrivateSubnetB
 
   vpcFlowLog:
     Type: "AWS::EC2::FlowLog"
@@ -558,8 +558,7 @@ Resources:
           - "HVM64"
       KeyName: !Ref KeyPair
       SourceDestCheck: false
-      SubnetId: !Ref AwsPublicSubnetB
-      #SubnetId: !Ref AwsPrivateSubnetA
+      SubnetId: !Ref AwsPrivateSubnetA
       SecurityGroupIds:
         - !GetAtt AwsTestVPNSecurityGroup.GroupId
       Tags:
