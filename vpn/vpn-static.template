@@ -1,0 +1,612 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  OnpremiseVpcCidrBlock:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: Project name that will be used to name and identify resoures that are created
+  AwsVpcCidrBlock:
+    Type: String
+    Default: 192.168.0.0/16
+    Description: Project name that will be used to name and identify resoures that are created
+  KeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: KeyPair to access VPN and test instances
+  Psk1:
+    Type: String
+    Default: 58A478135A93AC3BF058A5EA0E8FDB71
+    Description: Pre Shared Key for VPN config
+  Psk2:
+    Type: String
+    Default: F9E37E83B83C47A93C2F09F66408631B
+    Description: Pre Shared Key for VPN config
+
+Mappings:
+  RegionMap:
+    eu-west-2:
+      "HVM64": "ami-00a1270ce1e007c27"
+    eu-west-1:
+      "HVM64": "ami-0ce71448843cb18a1"
+
+Resources:
+
+################# ON PREM SETUP #################
+  vpc:
+    Type: "AWS::EC2::VPC"
+    Properties: 
+      CidrBlock: !Ref OnpremiseVpcCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        -
+          Key: Name
+          Value: Onprem-VPN
+
+  publicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref vpc
+      CidrBlock: !Select [0, !Cidr [!Ref OnpremiseVpcCidrBlock, 6, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "", [ "public-", a ] ]
+
+  publicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref vpc
+      CidrBlock: !Select [1, !Cidr [!Ref OnpremiseVpcCidrBlock, 6, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "", [ "public-", b ] ]
+
+  privateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Select [2, !Cidr [!Ref OnpremiseVpcCidrBlock, 6, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "", [ "private-", a ] ]
+
+  privateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref vpc
+      CidrBlock: !Select [3, !Cidr [!Ref OnpremiseVpcCidrBlock, 6, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "", [ "private-", b ] ]
+
+  myInternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+
+  attachIgwVpc:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties: 
+      InternetGatewayId: !Ref myInternetGateway
+      VpcId: !Ref vpc
+
+  publicRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: !Ref vpc
+
+  VPNTestPublicRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref vpc
+
+  route:
+    Type: "AWS::EC2::Route"
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myInternetGateway
+      RouteTableId: !Ref publicRouteTable
+
+  routeVPNTestInternet:
+    Type: "AWS::EC2::Route"
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myInternetGateway
+      RouteTableId: !Ref VPNTestPublicRouteTable
+
+  routeVPNTest:
+    Type: "AWS::EC2::Route"
+    Properties:
+      DestinationCidrBlock: !Ref AwsVpcCidrBlock
+      InstanceId: !Ref Ec2Instance
+      RouteTableId: !Ref VPNTestPublicRouteTable
+
+  subnetAssA:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref publicRouteTable
+      SubnetId: !Ref publicSubnetA
+
+  subnetAssB:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref VPNTestPublicRouteTable
+      SubnetId: !Ref publicSubnetB
+
+  vpcFlowLogRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - 
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "vpc-flow-logs.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+
+  vpcFlowLogPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          - logs:DescribeLogGroups
+          - logs:DescribeLogStreams
+          Resource:
+          - arn:aws:logs:*:*:*
+      PolicyName: vpcFlowLogPolicy
+      Roles:
+      - !Ref vpcFlowLogRole
+
+  vpcFlowLog:
+    Type: "AWS::EC2::FlowLog"
+    Properties:
+      DeliverLogsPermissionArn : !GetAtt vpcFlowLogRole.Arn
+      LogGroupName : securityGroupVpcFlowLogs
+      ResourceId : !Ref vpc
+      ResourceType : VPC
+      TrafficType : ALL
+
+  VPNSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "On-prem VPN Security Group"
+      VpcId: !Ref vpc
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: udp
+        FromPort: '500'
+        ToPort: '500'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: udp
+        FromPort: '4500'
+        ToPort: '4500'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: "-1"
+        SourceSecurityGroupId: !Ref TestVPNSecurityGroup
+
+  TestVPNSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "On-prem VPN Security Group"
+      VpcId: !Ref vpc
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: icmp
+        FromPort: '-1'
+        ToPort: '-1'
+        CidrIp: !Ref AwsVpcCidrBlock
+
+  Ec2Instance: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      InstanceType: t2.micro
+      ImageId: 
+        Fn::FindInMap: 
+          - "RegionMap"
+          - Ref: "AWS::Region"
+          - "HVM64"
+      KeyName: !Ref KeyPair
+      SourceDestCheck: false
+      SubnetId: !Ref publicSubnetA
+      SecurityGroupIds:
+        - !GetAtt VPNSecurityGroup.GroupId
+      Tags:
+        -
+          Key: Name
+          Value: Onprem-VPN-Instance
+      UserData:
+        Fn::Base64:
+          Fn::Sub:
+            - |
+              #!/bin/bash
+                
+              yum install -y libreswan
+              
+              if ! grep -q 'net.ipv4.ip_forward = 1' /etc/sysctl.conf; then
+                echo -e "net.ipv4.ip_forward = 1\nnet.ipv4.conf.default.rp_filter = 0\nnet.ipv4.conf.default.accept_source_route = 0" >> /etc/sysctl.conf
+                sysctl -p
+              fi
+              
+              cat <<EOF > /etc/ipsec.d/aws.conf
+              conn Tunnel1
+                      authby=secret
+                      auto=route
+                      left=%defaultroute
+                      leftid=${VPNeip}
+                      right=${TUNNELIP1}
+                      type=tunnel
+                      ikelifetime=8h
+                      keylife=1h
+                      phase2alg=aes128-sha1;modp1024
+                      ike=aes128-sha1;modp1024
+                      keyingtries=%forever
+                      keyexchange=ike
+                      leftsubnet=${OnpremiseVpcCidrBlock}
+                      rightsubnet=${AwsVpcCidrBlock}
+                      dpddelay=10
+                      dpdtimeout=30
+                      dpdaction=restart_by_peer
+              EOF
+              
+              echo '${VPNeip} ${TUNNELIP1}: PSK "${Psk1}"' > /etc/ipsec.d/aws.secrets
+              
+              cat <<EOF >> /etc/ipsec.d/aws.conf
+              conn Tunnel2
+                      authby=secret
+                      auto=route
+                      left=%defaultroute
+                      leftid=${VPNeip}
+                      right=${TUNNELIP2}
+                      type=tunnel
+                      ikelifetime=8h
+                      keylife=1h
+                      phase2alg=aes128-sha1;modp1024
+                      ike=aes128-sha1;modp1024
+                      keyingtries=%forever
+                      keyexchange=ike
+                      leftsubnet=${OnpremiseVpcCidrBlock}
+                      rightsubnet=${AwsVpcCidrBlock}
+                      dpddelay=10
+                      dpdtimeout=30
+                      dpdaction=restart_by_peer
+              EOF
+              
+              echo '${VPNeip} ${TUNNELIP2}: PSK "${Psk2}"' >> /etc/ipsec.d/aws.secrets
+              sed -i 's|%v4:${AwsVpcCidrBlock},||g' /etc/ipsec.conf
+              sed -i 's|config setup|config setup\n        nat_traversal=yes|g' /etc/ipsec.conf
+              systemctl enable ipsec.service
+              systemctl enable --now ipsec.service
+            - { 
+              TUNNELIP1: !GetAtt [ TunnelIp, OutsideIpAddress1 ], 
+              TUNNELIP2: !GetAtt [ TunnelIp, OutsideIpAddress2 ]
+              }
+
+  VPNeip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  AssociateEip:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt VPNeip.AllocationId
+      InstanceId: !Ref Ec2Instance
+
+  OnPremTestEc2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId:
+        Fn::FindInMap:
+          - "RegionMap"
+          - Ref: "AWS::Region"
+          - "HVM64"
+      KeyName: !Ref KeyPair
+      SourceDestCheck: false
+      SubnetId: !Ref publicSubnetB
+      SecurityGroupIds:
+        - !GetAtt TestVPNSecurityGroup.GroupId
+      Tags:
+        -
+          Key: Name
+          Value: Onprem-Test-Instance
+
+################# AWS SETUP #################
+
+  AwsVpc:
+    Type: "AWS::EC2::VPC"
+    Properties: 
+      CidrBlock: !Ref AwsVpcCidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        -
+          Key: Name
+          Value: AWS-VPN
+
+  AwsPublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref AwsVpc
+      CidrBlock: !Select [0, !Cidr [!Ref AwsVpcCidrBlock, 6, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "", [ "public-", a ] ]
+
+  AwsPublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref AwsVpc
+      CidrBlock: !Select [1, !Cidr [!Ref AwsVpcCidrBlock, 6, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "", [ "public-", b ] ]
+
+  AwsPrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AwsVpc
+      CidrBlock: !Select [2, !Cidr [!Ref AwsVpcCidrBlock, 6, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", a ] ]
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "", [ "private-", a ] ]
+
+  AwsPrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AwsVpc
+      CidrBlock: !Select [3, !Cidr [!Ref AwsVpcCidrBlock, 6, 4]]
+      AvailabilityZone: !Join [ "", [ !Ref "AWS::Region", b ] ]
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "", [ "private-", b ] ]
+
+  myAwsInternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+
+  AwsAttachIgwVpc:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties: 
+      InternetGatewayId: !Ref myAwsInternetGateway
+      VpcId: !Ref AwsVpc
+
+  AwsPublicRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: !Ref AwsVpc
+
+  AwsRoute:
+    Type: "AWS::EC2::Route"
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myAwsInternetGateway
+      RouteTableId: !Ref AwsPublicRouteTable
+
+  AwsRouteVPN:
+    DependsOn: TunnelIp
+    Type: "AWS::EC2::Route"
+    Properties:
+      DestinationCidrBlock: !Ref OnpremiseVpcCidrBlock
+      GatewayId: !Ref AwsMyVPNGateway
+      RouteTableId: !Ref AwsPublicRouteTable
+
+  AwsSubnetAssA:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref AwsPublicRouteTable
+      SubnetId: !Ref AwsPublicSubnetA
+
+  AwsSubnetAssB:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref AwsPublicRouteTable
+      SubnetId: !Ref AwsPublicSubnetB
+
+  vpcFlowLog:
+    Type: "AWS::EC2::FlowLog"
+    Properties:
+      DeliverLogsPermissionArn : !GetAtt vpcFlowLogRole.Arn
+      LogGroupName : securityGroupVpcFlowLogs
+      ResourceId : !Ref vpc
+      ResourceType : VPC
+      TrafficType : ALL
+
+  AwsMyVPNGateway: 
+   Type: AWS::EC2::VPNGateway
+   Properties: 
+      Type: ipsec.1
+      Tags: 
+      - Key: Use
+        Value: AWS-VPN
+
+  AwsAttachVpnGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref AwsVpc
+      VpnGatewayId: !Ref AwsMyVPNGateway
+
+  AwsMyCustomerGateway: 
+    Type: AWS::EC2::CustomerGateway
+    Properties: 
+        Type: ipsec.1
+        BgpAsn: 65534
+        IpAddress: !Ref VPNeip
+
+  AwsMyVPNConnection: 
+    Type: AWS::EC2::VPNConnection
+    Properties: 
+      Type: ipsec.1
+      StaticRoutesOnly: true
+      CustomerGatewayId: !Ref AwsMyCustomerGateway
+      VpnGatewayId: !Ref AwsMyVPNGateway
+      VpnTunnelOptionsSpecifications:
+        - 
+          PreSharedKey: !Ref Psk1
+        - 
+          PreSharedKey: !Ref Psk2
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com" 
+            Action: 
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonVPCReadOnlyAccess
+
+  VPNOutsideIPGenerator:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:get-outside-ip'
+      Handler: "index.lambda_handler"
+      Timeout: 15
+      Role: !GetAtt 'LambdaRole.Arn'
+      Runtime: python3.6
+      Code:
+        ZipFile: |
+          import logging
+          import boto3
+          import cfnresponse
+    
+          def lambda_handler(event, context):
+              logger = logging.getLogger()
+              logger.setLevel(logging.INFO)
+              vpn_connection_id = event['ResourceProperties'].get('VPNID', None)
+              ec2client = boto3.client('ec2')
+              response = ec2client.describe_vpn_connections(VpnConnectionIds=[ vpn_connection_id ])
+              responseData = {}
+              responseData['OutsideIpAddress1'] = response['VpnConnections'][0]['VgwTelemetry'][0]['OutsideIpAddress']
+              responseData['OutsideIpAddress2'] = response['VpnConnections'][0]['VgwTelemetry'][1]['OutsideIpAddress']
+              logger.info('responseData {}'.format(responseData))
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
+
+  TunnelIp:
+    Type: Custom::AMIInfo
+    Properties:
+      ServiceToken: !GetAtt VPNOutsideIPGenerator.Arn
+      VPNID: !Ref AwsMyVPNConnection
+
+  VPNStaticRoute:
+    Type: AWS::EC2::VPNConnectionRoute
+    Properties: 
+      DestinationCidrBlock: !Ref OnpremiseVpcCidrBlock
+      VpnConnectionId: !Ref AwsMyVPNConnection
+
+  AwsTestVPNSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "On-prem VPN Security Group"
+      VpcId: !Ref AwsVpc
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: !Ref OnpremiseVpcCidrBlock
+      - IpProtocol: icmp
+        FromPort: '-1'
+        ToPort: '-1'
+        CidrIp: !Ref OnpremiseVpcCidrBlock
+
+  AwsTestEc2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId:
+        Fn::FindInMap:
+          - "RegionMap"
+          - Ref: "AWS::Region"
+          - "HVM64"
+      KeyName: !Ref KeyPair
+      SourceDestCheck: false
+      SubnetId: !Ref AwsPublicSubnetB
+      #SubnetId: !Ref AwsPrivateSubnetA
+      SecurityGroupIds:
+        - !GetAtt AwsTestVPNSecurityGroup.GroupId
+      Tags:
+        -
+          Key: Name
+          Value: AWS-Test-Instance
+
+Outputs:
+  VPNIP1:
+    Description: AWS VPN IP 1
+    Value: 
+      Fn::GetAtt: 
+        - TunnelIp
+        - OutsideIpAddress1
+  VPNIP2:
+    Description: AWS VPN IP 2
+    Value: 
+      Fn::GetAtt: 
+        - TunnelIp
+        - OutsideIpAddress2
+  vpcId:
+    Description: The VPC ID
+    Value: !Ref vpc
+  subnetAId:
+    Description: The ID of Subnet A
+    Value: !Ref publicSubnetA
+  subnetAIp:
+    Description: The IP of Subnet A
+    Value: !Select [0, !Cidr [!Ref OnpremiseVpcCidrBlock, 6, 4]]
+  subnetBId:
+    Description: The ID of Subnet B
+    Value: !Ref publicSubnetB
+  subnetBIp:
+    Description: The IP of Subnet B
+    Value: !Select [1, !Cidr [!Ref OnpremiseVpcCidrBlock, 6, 4]]
+  privateSubnetAId:
+    Description: The ID of Subnet A
+    Value: !Ref privateSubnetA
+  privateSubnetAIp:
+    Description: The IP of Subnet A
+    Value: !Select [2, !Cidr [!Ref OnpremiseVpcCidrBlock, 6, 4]]
+  privateSubnetBId:
+    Description: The ID of Subnet B
+    Value: !Ref privateSubnetB
+  privateSubnetBIp:
+    Description: The IP of Subnet B
+    Value: !Select [3, !Cidr [!Ref OnpremiseVpcCidrBlock, 6, 4]]
+  DefaultSecurityGroup:
+    Description: The default subnet Id
+    Value: !GetAtt vpc.DefaultSecurityGroup
