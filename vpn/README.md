@@ -2,7 +2,7 @@
 This template deploys a simple non-HA, VPN tunnel to replicate an on-premesis VPN solution connecting to an AWS VPC.
 
 <p align="center">
-  <img width="300" src="https://github.com/charliejllewellyn/aws-service-demos/blob/master/vpn/images/Static_VPN.png">
+  <img width="900" src="https://github.com/charliejllewellyn/aws-service-demos/blob/master/vpn/images/Static_VPN.png">
 </p>
 
 ## Pre-reqs
