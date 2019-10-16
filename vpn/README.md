@@ -17,3 +17,7 @@ To deploy the stack click on the buttons below.
 |------|:------:|-------:|
 | EU West 2 (London)| <span style="font-family:'Courier';">eu-west-2</span> | [![Launch Step 0A in eu-west-2](images/cfn-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=VPN&templateURL=https://cjl-cloudformation-stack-templates-eu-west-2.s3.eu-west-1.amazonaws.com/vpn/vpn-static.template) |
 | EU West 1 (Ireland)| <span style="font-family:'Courier';">eu-west-1</span> | [![Launch Step 0A in eu-west-1](images/cfn-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=VPN&templateURL=https://cjl-cloudformation-stack-templates-eu-west-2.s3.eu-west-2.amazonaws.com/vpn/vpn-static.template) |
+
+## Testing
+
+To test the deployment head over to the EC2 console and get the public hostname of the instance named "Onprem-VPN-Instance". SSH to the instance and run a ping from the server to the private IP of the instance "AWS-Test-Instance".  
