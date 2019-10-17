@@ -293,7 +293,7 @@ Resources:
               EOF
               
               echo '${VPNeip} ${TUNNELIP1}: PSK "${Psk1}"' > /etc/ipsec.d/aws.secrets
-              echo '${VPNeip} ${TUNNELIP2}: PSK "${Psk1}"' > /etc/ipsec.d/aws.secrets
+              echo '${VPNeip} ${TUNNELIP2}: PSK "${Psk2}"' > /etc/ipsec.d/aws.secrets
               
               sed -i 's|%v4:${AwsVpcCidrBlock},||g' /etc/ipsec.conf
               sed -i 's|config setup|config setup\n        nat_traversal=yes|g' /etc/ipsec.conf
@@ -474,8 +474,10 @@ Resources:
       VpnTunnelOptionsSpecifications:
         - 
           PreSharedKey: !Ref Psk1
-        #- 
-        #  PreSharedKey: !Ref Psk2
+          TunnelInsideCidr: 169.254.103.40/30
+        - 
+          PreSharedKey: !Ref Psk2
+          TunnelInsideCidr: 169.254.51.216/30
 
   LambdaRole:
     Type: AWS::IAM::Role
