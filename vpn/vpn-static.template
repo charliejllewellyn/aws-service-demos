@@ -292,8 +292,8 @@ Resources:
                       dpdaction=restart_by_peer
               EOF
               
-              echo '${VPNeip} ${TUNNELIP1}: PSK "${Psk1}"' > /etc/ipsec.d/aws.secrets
-              echo '${VPNeip} ${TUNNELIP2}: PSK "${Psk2}"' > /etc/ipsec.d/aws.secrets
+              echo '${VPNeip} ${TUNNELIP1} : PSK "${PSK1}"' > /etc/ipsec.d/aws.secrets
+              echo '${VPNeip} ${TUNNELIP2} : PSK "${PSK2}"' >> /etc/ipsec.d/aws.secrets
               
               sed -i 's|%v4:${AwsVpcCidrBlock},||g' /etc/ipsec.conf
               sed -i 's|config setup|config setup\n        nat_traversal=yes|g' /etc/ipsec.conf
@@ -301,7 +301,9 @@ Resources:
               systemctl enable --now ipsec.service
             - { 
               TUNNELIP1: !GetAtt [ TunnelIp, OutsideIpAddress1 ],
-              TUNNELIP2: !GetAtt [ TunnelIp, OutsideIpAddress2 ]
+              TUNNELIP2: !GetAtt [ TunnelIp, OutsideIpAddress2 ],
+              PSK1: !GetAtt [ TunnelIp, psk1 ],
+              PSK2: !GetAtt [ TunnelIp, psk2 ]
               }
 
   VPNeip:
@@ -474,10 +476,8 @@ Resources:
       VpnTunnelOptionsSpecifications:
         - 
           PreSharedKey: !Ref Psk1
-          TunnelInsideCidr: 169.254.103.40/30
         - 
           PreSharedKey: !Ref Psk2
-          TunnelInsideCidr: 169.254.51.216/30
 
   LambdaRole:
     Type: AWS::IAM::Role
@@ -503,22 +503,35 @@ Resources:
       Handler: "index.lambda_handler"
       Timeout: 15
       Role: !GetAtt 'LambdaRole.Arn'
-      Runtime: python3.6
+      Runtime: python3.7
       Code:
         ZipFile: |
           import logging
           import boto3
           import cfnresponse
-    
+          import xml.etree.ElementTree as ET
+          
           def lambda_handler(event, context):
+              print(event)
               logger = logging.getLogger()
               logger.setLevel(logging.INFO)
               vpn_connection_id = event['ResourceProperties'].get('VPNID', None)
               ec2client = boto3.client('ec2')
               response = ec2client.describe_vpn_connections(VpnConnectionIds=[ vpn_connection_id ])
+              
+              xmlData = response['VpnConnections'][0]['CustomerGatewayConfiguration']
+              root = ET.fromstring(xmlData)
+              psks = []
+              for psk in root.iter('pre_shared_key'):
+                  psks.append(psk.text)
+              insideCidrs = []
+              for insideCidr in root.findall("./ipsec_tunnel/vpn_gateway/tunnel_inside_address/ip_address"):
+                  insideCidrs.append(insideCidr.text)
               responseData = {}
               responseData['OutsideIpAddress1'] = response['VpnConnections'][0]['VgwTelemetry'][0]['OutsideIpAddress']
               responseData['OutsideIpAddress2'] = response['VpnConnections'][0]['VgwTelemetry'][1]['OutsideIpAddress']
+              responseData['psk1'] = psks[0]
+              responseData['psk2'] = psks[1]
               logger.info('responseData {}'.format(responseData))
               cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
 
