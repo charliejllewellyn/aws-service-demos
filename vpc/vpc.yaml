@@ -5,6 +5,18 @@ Parameters:
     Type: String
     Default: 10.0.0.0/16
     Description: Project name that will be used to name and identify resoures that are created
+  projectName:
+    Type: String
+    Default: nat-vpc
+    Description: VPC with public private subnets and NAT GW
+  enableNat:
+    Type: String
+    Default: false
+    Description: set to true to deploy a NAT GW
+    AllowedValues: [true, false]
+
+Conditions: 
+  CreateNat: !Equals [ !Ref enableNat, true ]
 
 Resources:
 
@@ -136,6 +148,49 @@ Resources:
       ResourceId : !Ref vpc
       ResourceType : VPC
       TrafficType : ALL
+
+  NAT:
+    Type: AWS::EC2::NatGateway
+    Condition: CreateNat
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+        - EIP
+        - AllocationId
+      SubnetId:
+        Ref: publicSubnetA
+      Tags:
+      - Key: Name
+        Value: !Ref projectName
+
+  EIP:
+    DependsOn: attachIgwVpc
+    Type: AWS::EC2::EIP
+    Condition: CreateNat
+    Properties:
+      Domain: vpc
+
+  privateRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref vpc
+
+  Route:
+    Type: AWS::EC2::Route
+    Condition: CreateNat
+    Properties:
+      RouteTableId:
+        Ref: privateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: NAT
+
+  subnetAssA:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Condition: CreateNat
+    Properties:
+      RouteTableId: !Ref privateRouteTable
+      SubnetId: !Ref privateSubnetA
 
 Outputs:
   vpcId:
