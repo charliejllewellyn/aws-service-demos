@@ -1,0 +1,173 @@
+---
+Description: Create Amazon Neptune cluster and Amazon SageMaker notebook
+Parameters:
+  ElasticsearchDomainName:
+    Description: ES domain name
+    Default: nep
+    Type: String
+  ElasticsearchIndexName:
+    Description: ES domain name
+    Default: nep
+    Type: String
+  CognitoDomainName:
+    Description: Cognito Domain Name, must be globally uniqiue
+    Type: String
+Resources:
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: "KibanaUsers"
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          DeveloperOnlyAttribute: false
+          Mutable: true
+          Required: true
+
+  AppClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties: 
+      ClientName: nep
+      ExplicitAuthFlows: 
+        - ALLOW_CUSTOM_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      GenerateSecret: False
+      UserPoolId: !Ref UserPool
+
+  CognitoDomain:
+    DependsOn: UserPool
+    Type: AWS::Cognito::UserPoolDomain
+    Properties: 
+      Domain: !Ref CognitoDomainName
+      UserPoolId: !Ref UserPool
+
+  IdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName: "KibanaIDPool"
+      AllowUnauthenticatedIdentities: true
+      # CognitoIdentityProviders:
+      #   - ClientId: !Ref UserPoolClient
+      #     ProviderName: !Sub "cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}"
+
+  AuthenticatedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "es:ESHttp*"
+            Resource:
+              - "*"
+              
+  AuthenticatedRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRoleWithWebIdentity"
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref IdentityPool
+              ForAnyValue:StringLike:
+                "cognito-identity.amazonaws.com:amr": authenticated
+      ManagedPolicyArns: 
+        - !Ref AuthenticatedPolicy
+        
+  RoleAttachment:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId: !Ref IdentityPool
+      Roles:
+        authenticated: !GetAtt AuthenticatedRole.Arn
+
+  EsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - es.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - cognito-idp:DescribeUserPool
+              - cognito-idp:CreateUserPoolClient
+              - cognito-idp:DeleteUserPoolClient
+              - cognito-idp:DescribeUserPoolClient
+              - cognito-idp:AdminInitiateAuth
+              - cognito-idp:AdminUserGlobalSignOut
+              - cognito-idp:ListUserPoolClients
+              - cognito-identity:DescribeIdentityPool
+              - cognito-identity:UpdateIdentityPool
+              - cognito-identity:SetIdentityPoolRoles
+              - cognito-identity:GetIdentityPoolRoles
+              Resource: "*"
+            - Effect: Allow
+              Action: iam:PassRole
+              Resource: "*"
+              Condition:
+                StringLike:
+                  iam:PassedToService: cognito-identity.amazonaws.com
+
+  ElasticsearchDomain: 
+    DependsOn: 
+      - CognitoDomain
+      - IdentityPool
+    Type: AWS::Elasticsearch::Domain
+    Properties:
+      DomainName: !Sub "${ElasticsearchDomainName}"
+      ElasticsearchVersion: 7.1
+      ElasticsearchClusterConfig: 
+        InstanceCount: "1"
+        InstanceType: "m4.large.elasticsearch"
+      CognitoOptions:
+        Enabled: True
+        IdentityPoolId: !Ref IdentityPool
+        RoleArn: !GetAtt EsRole.Arn
+        UserPoolId: !Ref UserPool
+      EBSOptions: 
+        EBSEnabled: true
+        Iops: 0
+        VolumeSize: 10
+        VolumeType: "gp2"
+      SnapshotOptions: 
+        AutomatedSnapshotStartHour: "0"
+      AccessPolicies: 
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "es:*"
+            Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${ElasticsearchDomainName}/*"
+      Tags:
+        - Key: Owner
+          Value: cjl
