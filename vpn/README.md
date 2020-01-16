@@ -15,8 +15,8 @@ To deploy the stack click on the buttons below.
 
 | Region| Region Code | Launch |
 |------|:------:|-------:|
-| EU West 2 (London)| <span style="font-family:'Courier';">eu-west-2</span> | [![Launch Step 0A in eu-west-2](images/cfn-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=VPN&templateURL=https://cjl-eu-west-2.s3.eu-west-2.amazonaws.com/aws-service-demos/vpn/vpn-static.template) |
-| EU West 1 (Ireland)| <span style="font-family:'Courier';">eu-west-1</span> | [![Launch Step 0A in eu-west-1](images/cfn-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/new?stackName=VPN&templateURL=https://cjl-eu-west-2.s3.eu-west-2.amazonaws.com/aws-service-demos/vpn/vpn-static.template) |
+| EU West 2 (London)| <span style="font-family:'Courier';">eu-west-2</span> | [![Launch Step 0A in eu-west-2](images/cfn-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=VPN&templateURL=https://cjl-eu-west-2.s3.eu-west-2.amazonaws.com/cloudformation-templates/aws-service-demos/vpn/vpn-static.template) |
+| EU West 1 (Ireland)| <span style="font-family:'Courier';">eu-west-1</span> | [![Launch Step 0A in eu-west-1](images/cfn-launch-stack.png)](https://cjl-eu-west-1.s3.eu-west-2.amazonaws.com/cloudformation-templates/aws-service-demos/vpn/vpn-static.template) |
 
 ## Testing
 
